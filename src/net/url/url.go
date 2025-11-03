@@ -957,7 +957,6 @@ func ParseQuery(query string) (Values, error) {
 
 var urlmaxqueryparams = godebug.New("urlmaxqueryparams")
 
-// Keep this in sync with net/http/httputil.
 const defaultMaxParams = 10000
 
 func urlParamsWithinMax(params int) bool {
