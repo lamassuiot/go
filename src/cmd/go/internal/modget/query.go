@@ -139,7 +139,7 @@ func errSet(err error) pathSet { return pathSet{err: err} }
 
 // newQuery returns a new query parsed from the raw argument,
 // which must be either path or path@version.
-func newQuery(ld *modload.Loader, raw string) (*query, error) {
+func newQuery(loaderstate *modload.State, raw string) (*query, error) {
 	pattern, rawVers, found, err := modload.ParsePathVersion(raw)
 	if err != nil {
 		return nil, err
