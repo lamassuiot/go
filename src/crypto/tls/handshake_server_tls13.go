@@ -315,6 +315,7 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
 		return nil
 	}
 
+pskIdentityLoop:
 	for i, identity := range hs.clientHello.pskIdentities {
 		if i >= maxClientPSKIdentities {
 			break
@@ -367,8 +368,13 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
 		if sessionHasClientCerts && c.config.ClientAuth == NoClientCert {
 			continue
 		}
-		if sessionHasClientCerts && c.config.time().After(sessionState.peerCertificates[0].NotAfter) {
-			continue
+		if sessionHasClientCerts {
+			now := c.config.time()
+			for _, c := range sessionState.peerCertificates {
+				if now.After(c.NotAfter) {
+					continue pskIdentityLoop
+				}
+			}
 		}
 		opts := x509.VerifyOptions{
 			CurrentTime: c.config.time(),
