@@ -376,7 +376,7 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
 			KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		}
 		if sessionHasClientCerts && c.config.ClientAuth >= VerifyClientCertIfGiven &&
-			!anyUnexpiredChain(sessionState.verifiedChains, c.config.time()) {
+			!anyValidVerifiedChain(sessionState.verifiedChains, opts) {
 			continue
 		}
 
