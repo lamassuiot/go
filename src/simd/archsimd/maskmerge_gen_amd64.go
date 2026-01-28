@@ -15,10 +15,6 @@ func (x Int8x16) Masked(mask Mask8x16) Int8x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int8x16) Merge(y Int8x16, mask Mask8x16) Int8x16 {
 	return x.IfElse(mask, y)
 }
@@ -42,10 +38,6 @@ func (x Int16x8) Masked(mask Mask16x8) Int16x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int16x8) Merge(y Int16x8, mask Mask16x8) Int16x8 {
 	return x.IfElse(mask, y)
 }
@@ -71,10 +63,6 @@ func (x Int32x4) Masked(mask Mask32x4) Int32x4 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int32x4) Merge(y Int32x4, mask Mask32x4) Int32x4 {
 	return x.IfElse(mask, y)
 }
@@ -100,10 +88,6 @@ func (x Int64x2) Masked(mask Mask64x2) Int64x2 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int64x2) Merge(y Int64x2, mask Mask64x2) Int64x2 {
 	return x.IfElse(mask, y)
 }
@@ -129,10 +113,6 @@ func (x Uint8x16) Masked(mask Mask8x16) Uint8x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint8x16) Merge(y Uint8x16, mask Mask8x16) Uint8x16 {
 	return x.IfElse(mask, y)
 }
@@ -158,10 +138,6 @@ func (x Uint16x8) Masked(mask Mask16x8) Uint16x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint16x8) Merge(y Uint16x8, mask Mask16x8) Uint16x8 {
 	return x.IfElse(mask, y)
 }
@@ -187,10 +163,6 @@ func (x Uint32x4) Masked(mask Mask32x4) Uint32x4 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint32x4) Merge(y Uint32x4, mask Mask32x4) Uint32x4 {
 	return x.IfElse(mask, y)
 }
@@ -216,10 +188,6 @@ func (x Uint64x2) Masked(mask Mask64x2) Uint64x2 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint64x2) Merge(y Uint64x2, mask Mask64x2) Uint64x2 {
 	return x.IfElse(mask, y)
 }
@@ -245,10 +213,6 @@ func (x Float32x4) Masked(mask Mask32x4) Float32x4 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Float32x4) Merge(y Float32x4, mask Mask32x4) Float32x4 {
 	return x.IfElse(mask, y)
 }
@@ -274,10 +238,6 @@ func (x Float64x2) Masked(mask Mask64x2) Float64x2 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Float64x2) Merge(y Float64x2, mask Mask64x2) Float64x2 {
 	return x.IfElse(mask, y)
 }
@@ -303,10 +263,6 @@ func (x Int8x32) Masked(mask Mask8x32) Int8x32 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int8x32) Merge(y Int8x32, mask Mask8x32) Int8x32 {
 	return x.IfElse(mask, y)
 }
@@ -330,10 +286,6 @@ func (x Int16x16) Masked(mask Mask16x16) Int16x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int16x16) Merge(y Int16x16, mask Mask16x16) Int16x16 {
 	return x.IfElse(mask, y)
 }
@@ -359,10 +311,6 @@ func (x Int32x8) Masked(mask Mask32x8) Int32x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int32x8) Merge(y Int32x8, mask Mask32x8) Int32x8 {
 	return x.IfElse(mask, y)
 }
@@ -388,10 +336,6 @@ func (x Int64x4) Masked(mask Mask64x4) Int64x4 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int64x4) Merge(y Int64x4, mask Mask64x4) Int64x4 {
 	return x.IfElse(mask, y)
 }
@@ -417,10 +361,6 @@ func (x Uint8x32) Masked(mask Mask8x32) Uint8x32 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint8x32) Merge(y Uint8x32, mask Mask8x32) Uint8x32 {
 	return x.IfElse(mask, y)
 }
@@ -446,10 +386,6 @@ func (x Uint16x16) Masked(mask Mask16x16) Uint16x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint16x16) Merge(y Uint16x16, mask Mask16x16) Uint16x16 {
 	return x.IfElse(mask, y)
 }
@@ -475,10 +411,6 @@ func (x Uint32x8) Masked(mask Mask32x8) Uint32x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint32x8) Merge(y Uint32x8, mask Mask32x8) Uint32x8 {
 	return x.IfElse(mask, y)
 }
@@ -504,10 +436,6 @@ func (x Uint64x4) Masked(mask Mask64x4) Uint64x4 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint64x4) Merge(y Uint64x4, mask Mask64x4) Uint64x4 {
 	return x.IfElse(mask, y)
 }
@@ -533,10 +461,6 @@ func (x Float32x8) Masked(mask Mask32x8) Float32x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Float32x8) Merge(y Float32x8, mask Mask32x8) Float32x8 {
 	return x.IfElse(mask, y)
 }
@@ -562,10 +486,6 @@ func (x Float64x4) Masked(mask Mask64x4) Float64x4 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX2
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Float64x4) Merge(y Float64x4, mask Mask64x4) Float64x4 {
 	return x.IfElse(mask, y)
 }
@@ -591,10 +511,6 @@ func (x Int8x64) Masked(mask Mask8x64) Int8x64 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int8x64) Merge(y Int8x64, mask Mask8x64) Int8x64 {
 	return x.IfElse(mask, y)
 }
@@ -617,10 +533,6 @@ func (x Int16x32) Masked(mask Mask16x32) Int16x32 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int16x32) Merge(y Int16x32, mask Mask16x32) Int16x32 {
 	return x.IfElse(mask, y)
 }
@@ -643,10 +555,6 @@ func (x Int32x16) Masked(mask Mask32x16) Int32x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int32x16) Merge(y Int32x16, mask Mask32x16) Int32x16 {
 	return x.IfElse(mask, y)
 }
@@ -669,10 +577,6 @@ func (x Int64x8) Masked(mask Mask64x8) Int64x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Int64x8) Merge(y Int64x8, mask Mask64x8) Int64x8 {
 	return x.IfElse(mask, y)
 }
@@ -695,10 +599,6 @@ func (x Uint8x64) Masked(mask Mask8x64) Uint8x64 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint8x64) Merge(y Uint8x64, mask Mask8x64) Uint8x64 {
 	return x.IfElse(mask, y)
 }
@@ -723,10 +623,6 @@ func (x Uint16x32) Masked(mask Mask16x32) Uint16x32 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint16x32) Merge(y Uint16x32, mask Mask16x32) Uint16x32 {
 	return x.IfElse(mask, y)
 }
@@ -751,10 +647,6 @@ func (x Uint32x16) Masked(mask Mask32x16) Uint32x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint32x16) Merge(y Uint32x16, mask Mask32x16) Uint32x16 {
 	return x.IfElse(mask, y)
 }
@@ -779,10 +671,6 @@ func (x Uint64x8) Masked(mask Mask64x8) Uint64x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Uint64x8) Merge(y Uint64x8, mask Mask64x8) Uint64x8 {
 	return x.IfElse(mask, y)
 }
@@ -807,10 +695,6 @@ func (x Float32x16) Masked(mask Mask32x16) Float32x16 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Float32x16) Merge(y Float32x16, mask Mask32x16) Float32x16 {
 	return x.IfElse(mask, y)
 }
@@ -835,10 +719,6 @@ func (x Float64x8) Masked(mask Mask64x8) Float64x8 {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
-//
-// Deprecated: use x.IfElse(mask, y)
-//
-//go:fix inline
 func (x Float64x8) Merge(y Float64x8, mask Mask64x8) Float64x8 {
 	return x.IfElse(mask, y)
 }
