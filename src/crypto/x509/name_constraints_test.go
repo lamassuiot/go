@@ -1629,6 +1629,17 @@ var nameConstraintsTests = []nameConstraintsTest{
 			sans: []string{"email:a@ExAmple.com"},
 		},
 	},
+	{
+		name: "excluded constraint, empty DNS san",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:example.com"},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:"},
+		},
+	},
 }
 
 func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
