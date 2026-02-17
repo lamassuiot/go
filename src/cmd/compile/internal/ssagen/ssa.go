@@ -4540,17 +4540,7 @@ func (s *state) assignWhichMayOverlap(left ir.Node, right *ssa.Value, deref bool
 				s.boundsCheck(i, len, ssa.BoundsIndex, false)
 				return
 			}
-			if n != 1 {
-				// This can happen in weird, always-panics cases, like:
-				//     var x [0][2]int
-				//     x[i][j] = 5
-				// We know it always panics because the LHS is ssa-able,
-				// and arrays of length > 1 can't be ssa-able unless
-				// they are somewhere inside an outer [0].
-				// We can ignore the actual assignment, it is dynamically
-				// unreachable. See issue 77635.
-				// Still, evaluating left.X for any side-effects.
-				_ = s.expr(left.X)
+			if t.Size() == 0 {
 				return
 			}
 
