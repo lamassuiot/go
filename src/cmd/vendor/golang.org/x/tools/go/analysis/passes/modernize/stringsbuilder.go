@@ -13,7 +13,6 @@ import (
 	"go/types"
 	"maps"
 	"slices"
-	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -77,7 +76,7 @@ func stringsbuilder(pass *analysis.Pass) (any, error) {
 	// Now check each candidate variable's decl and uses.
 nextcand:
 	for _, v := range slices.SortedFunc(maps.Keys(candidates), lexicalOrder) {
-		var edits, postEdits []analysis.TextEdit // postEdits are emitted last
+		var edits []analysis.TextEdit
 
 		// Check declaration of s has one of these forms:
 		//
@@ -102,15 +101,8 @@ nextcand:
 		if file == lastEditFile && v.Pos() < lastEditEnd {
 			continue
 		}
-		filename := pass.Fset.File(file.FileStart).Name()
-		// Suppress diagnostics in test files, where suggested fixes may increase
-		// verbosity, and performance doesn't matter as much.
-		// See https://go.dev/issue/78613
-		if strings.HasSuffix(filename, "_test.go") {
-			continue
-		}
 
-		ek := def.ParentEdgeKind()
+		ek, _ := def.ParentEdge()
 		if ek == edge.AssignStmt_Lhs &&
 			len(def.Parent().Node().(*ast.AssignStmt).Lhs) == 1 {
 			// Have: s := expr
@@ -363,8 +355,6 @@ nextcand:
 		if numLoopAssigns == 0 {
 			continue nextcand // no += in a loop; reject
 		}
-
-		edits = append(edits, postEdits...)
 
 		lastEditFile = file
 		lastEditEnd = edits[len(edits)-1].End

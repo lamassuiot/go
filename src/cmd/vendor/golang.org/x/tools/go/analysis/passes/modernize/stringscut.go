@@ -38,6 +38,11 @@ var StringsCutAnalyzer = &analysis.Analyzer{
 	URL: "https://pkg.go.dev/golang.org/x/tools/go/analysis/passes/modernize#stringscut",
 }
 
+func init() {
+	// Export to gopls until this is a published modernizer.
+	goplsexport.StringsCutModernizer = stringscutAnalyzer
+}
+
 // stringscut offers a fix to replace an occurrence of strings.Index{,Byte} with
 // strings.{Cut,Contains}, and similar fixes for functions in the bytes package.
 // Consider some candidate for replacement i := strings.Index(s, substr).
