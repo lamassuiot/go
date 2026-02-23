@@ -5,7 +5,6 @@
 package test
 
 import (
-	"bytes"
 	"internal/platform"
 	"internal/testenv"
 	"os"
@@ -111,13 +110,7 @@ func TestIssue77597(t *testing.T) {
 	cmd := testenv.Command(t, testenv.GoToolPath(t), "run", "-race", "-gcflags=all=-N -l", src)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		// For details, please refer to CL 160919.
-		unsupportedVMA := []byte("unsupported VMA range")
-		if bytes.Contains(out, unsupportedVMA) {
-			t.Skipf("skipped due to unsupported VMA on %s/%s", runtime.GOOS, runtime.GOARCH)
-		} else {
-			t.Fatalf("program failed: %v\n%s", err, out)
-		}
+		t.Fatalf("program failed: %v\n%s", err, out)
 	}
 }
 
