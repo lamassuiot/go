@@ -851,7 +851,7 @@ func WriteWorkFile(path string, wf *modfile.WorkFile) error {
 	wf.Cleanup()
 	out := modfile.Format(wf.Syntax)
 
-	return os.WriteFile(path, out, 0o666)
+	return os.WriteFile(path, out, 0666)
 }
 
 // UpdateWorkGoVersion updates the go line in wf to be at least goVers,
@@ -1210,7 +1210,7 @@ func CreateModFile(ld *Loader, ctx context.Context, modPath string) {
 	}
 	modFile := new(modfile.File)
 	modFile.AddModuleStmt(modPath)
-	ld.MainModules = makeMainModules(ld, []module.Version{modFile.Module.Mod}, []string{modRoot}, []*modfile.File{modFile}, []*modFileIndex{nil}, nil)
+	loaderstate.MainModules = makeMainModules(loaderstate, []module.Version{modFile.Module.Mod}, []string{modRoot}, []*modfile.File{modFile}, []*modFileIndex{nil}, nil)
 	addGoStmt(modFile, modFile.Module.Mod, gover.Local()) // Add the go directive before converted module requirements.
 
 	rs := requirementsFromModFiles(ld, ctx, nil, []*modfile.File{modFile}, nil)
@@ -1847,7 +1847,9 @@ Run 'go help mod init' for more information.
 	return "", fmt.Errorf(msg, dir, reason)
 }
 
-var importCommentRE = lazyregexp.New(`(?m)^package[ \t]+[^ \t\r\n/]+[ \t]+//[ \t]+import[ \t]+(\"[^"]+\")[ \t]*\r?\n`)
+var (
+	importCommentRE = lazyregexp.New(`(?m)^package[ \t]+[^ \t\r\n/]+[ \t]+//[ \t]+import[ \t]+(\"[^"]+\")[ \t]*\r?\n`)
+)
 
 func findImportComment(file string) string {
 	data, err := os.ReadFile(file)
