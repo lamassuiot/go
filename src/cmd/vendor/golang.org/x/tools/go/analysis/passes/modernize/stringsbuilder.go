@@ -194,7 +194,7 @@ nextcand:
 				NewText: fmt.Appendf(nil, " %sBuilder", prefix),
 			})
 
-			if len(spec.Values) > 0 && !isEmptyString(info, spec.Values[0]) {
+			if len(spec.Values) > 0 && !isEmptyString(pass.TypesInfo, spec.Values[0]) {
 				if decl.Rparen.IsValid() {
 					// var decl with explicit parens:
 					//
@@ -274,8 +274,11 @@ nextcand:
 		)
 		for curUse := range index.Uses(v) {
 			// Strip enclosing parens around Ident.
-			curUse = astutil.UnparenEnclosingCursor(curUse)
-			ek := curUse.ParentEdgeKind()
+			ek, _ := curUse.ParentEdge()
+			for ek == edge.ParenExpr_X {
+				curUse = curUse.Parent()
+				ek, _ = curUse.ParentEdge()
+			}
 
 			// intervening reports whether cur has an ancestor of
 			// one of the given types that is within the scope of v.

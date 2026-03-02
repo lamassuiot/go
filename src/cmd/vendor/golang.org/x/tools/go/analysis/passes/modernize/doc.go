@@ -544,9 +544,6 @@ is replaced by:
 
 This avoids quadratic memory allocation and improves performance.
 
-No diagnostics are issued in tests, where data sizes are often
-small and asymptotic performance is not a security concern.
-
 The analyzer requires that all references to s before the final uses
 are += operations. To avoid warning about trivial cases, at least one
 must appear within a loop. The variable s must be a local
@@ -556,25 +553,6 @@ All uses of the finished string must come after the last += operation.
 Each such use will be replaced by a call to strings.Builder's String method.
 (These may appear within an intervening loop or function literal, since even
 if s.String() is called repeatedly, it does not allocate memory.)
-
-Often the addend is a call to fmt.Sprintf, as in this example:
-
-	var s string
-	for x := range seq {
-		s += fmt.Sprintf("%v", x)
-	}
-
-which, once the suggested fix is applied, becomes:
-
-	var s strings.Builder
-	for x := range seq {
-		s.WriteString(fmt.Sprintf("%v", x))
-	}
-
-The WriteString call can be further simplified to the more efficient
-fmt.Fprintf(&s, "%v", x), avoiding the allocation of an intermediary.
-However, stringsbuilder does not perform this simplification;
-it requires staticcheck analyzer QF1012. (See https://go.dev/issue/76918.)
 
 # Analyzer testingcontext
 

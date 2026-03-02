@@ -769,11 +769,11 @@ func isAfterSlice(info *types.Info, ek edge.Kind, slice *ast.SliceExpr, substr a
 // intervening uses (incl. via aliases) of i that might alter its value.
 func isSliceIndexGuarded(info *types.Info, cur inspector.Cursor, iObj types.Object) bool {
 	for anc := range cur.Enclosing() {
-		switch anc.ParentEdgeKind() {
+		switch ek, _ := anc.ParentEdge(); ek {
 		case edge.IfStmt_Body, edge.IfStmt_Else:
 			ifStmt := anc.Parent().Node().(*ast.IfStmt)
 			check := condChecksIdx(info, ifStmt.Cond, iObj)
-			if anc.ParentEdgeKind() == edge.IfStmt_Else {
+			if ek == edge.IfStmt_Else {
 				check = -check
 			}
 			if check > 0 {

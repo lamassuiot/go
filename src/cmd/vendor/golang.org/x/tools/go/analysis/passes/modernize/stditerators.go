@@ -200,7 +200,7 @@ func stditerators(pass *analysis.Pass) (any, error) {
 			)
 
 			// Analyze enclosing loop.
-			switch curLenCall.ParentEdgeKind() {
+			switch first(curLenCall.ParentEdge()) {
 			case edge.BinaryExpr_Y:
 				// pattern 1: for i := 0; i < x.Len(); i++ { ... }
 				var (
