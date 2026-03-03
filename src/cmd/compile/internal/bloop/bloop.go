@@ -216,15 +216,18 @@ func preserveCallArgs(curFn *ir.Func, call *ir.CallExpr) ir.Node {
 func preserveStmt(curFn *ir.Func, stmt ir.Node) ir.Node {
 	switch n := stmt.(type) {
 	case *ir.AssignStmt:
-		// If the left hand side is blank, we need to assign it to a temp
-		// so that it can be kept alive.
-		if ir.IsBlank(n.X) {
-			tmp := typecheck.TempAt(n.Pos(), curFn, n.Y.Type())
-			n.X = tmp
-			n.Def = true
-			n.PtrInit().Append(typecheck.Stmt(ir.NewDecl(n.Pos(), ir.ODCL, tmp)))
-			stmt = typecheck.AssignExpr(n)
-			n = stmt.(*ir.AssignStmt)
+		// Peel down struct and slice indexing to get the names
+		name := getAddressableNameFromNode(n.X)
+		if name != nil {
+			debugName(name, n.Pos())
+			ret = keepAliveAt([]ir.Node{name}, n)
+		} else if deref, ok := n.X.(*ir.StarExpr); ok && deref != nil {
+			ret = keepAliveAt([]ir.Node{deref}, n)
+			if base.Flag.LowerM > 1 {
+				base.WarnfAt(n.Pos(), "dereference will be kept alive")
+			}
+		} else if base.Flag.LowerM > 1 {
+			base.WarnfAt(n.Pos(), "expr is unknown to bloop pass")
 		}
 		return keepAliveAt(getKeepAliveNodes(n.Pos(), n.X), n)
 	case *ir.AssignListStmt:
@@ -234,7 +237,7 @@ func preserveStmt(curFn *ir.Func, stmt ir.Node) ir.Node {
 			if name != nil {
 				debugName(name, n.Pos())
 				ns = append(ns, name)
-			} else if deref := lhs.(*ir.StarExpr); deref != nil {
+			} else if deref, ok := lhs.(*ir.StarExpr); ok && deref != nil {
 				ns = append(ns, deref)
 				if base.Flag.LowerM > 1 {
 					base.WarnfAt(n.Pos(), "dereference will be kept alive")
@@ -249,7 +252,7 @@ func preserveStmt(curFn *ir.Func, stmt ir.Node) ir.Node {
 		if name != nil {
 			debugName(name, n.Pos())
 			ret = keepAliveAt([]ir.Node{name}, n)
-		} else if deref := n.X.(*ir.StarExpr); deref != nil {
+		} else if deref, ok := n.X.(*ir.StarExpr); ok && deref != nil {
 			ret = keepAliveAt([]ir.Node{deref}, n)
 			if base.Flag.LowerM > 1 {
 				base.WarnfAt(n.Pos(), "dereference will be kept alive")
