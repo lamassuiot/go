@@ -31,7 +31,7 @@ func futex(addr unsafe.Pointer, op int32, val uint32, ts *timespec, addr2 unsafe
 	var ts32 timespec32
 	var pts32 *timespec32
 	if ts != nil {
-		ts32 = ts.mustDowncastToTimespec32()
+		ts32.setNsec(ts.tv_sec*1e9 + int64(ts.tv_nsec))
 		pts32 = &ts32
 	}
 	return futex_time32(addr, op, val, pts32, addr2, val3)
@@ -53,14 +53,14 @@ func timer_settime(timerid int32, flags int32, new, old *itimerspec) int32 {
 	var new32, old32 *itimerspec32
 
 	if new != nil {
-		newts.it_interval = new.it_interval.mustDowncastToTimespec32()
-		newts.it_value = new.it_value.mustDowncastToTimespec32()
+		newts.it_interval.setNsec(new.it_interval.tv_sec*1e9 + int64(new.it_interval.tv_nsec))
+		newts.it_value.setNsec(new.it_value.tv_sec*1e9 + int64(new.it_value.tv_nsec))
 		new32 = &newts
 	}
 
 	if old != nil {
-		oldts.it_interval = old.it_interval.mustDowncastToTimespec32()
-		oldts.it_value = old.it_value.mustDowncastToTimespec32()
+		oldts.it_interval.setNsec(old.it_interval.tv_sec*1e9 + int64(old.it_interval.tv_nsec))
+		oldts.it_value.setNsec(old.it_value.tv_sec*1e9 + int64(old.it_value.tv_nsec))
 		old32 = &oldts
 	}
 
