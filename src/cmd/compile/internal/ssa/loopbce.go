@@ -151,19 +151,166 @@ nextblock:
 				continue
 			}
 
-			// Expect the increment to be a nonzero constant.
-			if !inc.isGenericIntConst() {
-				continue
-			}
-			step := inc.AuxInt
-			if step == 0 {
-				continue
-			}
-			// step == minInt64 cannot be safely negated below, because -step
-			// overflows back to minInt64. The later underflow checks need a
-			// positive magnitude, so reject this case here.
-			if step == minSignedValue(ind.Type) {
-				continue
+			// Ok, the arguments were reversed. Swap them, and remember that we're
+			// looking at an ind >/>= loop (so the induction must be decrementing).
+			ind, limit = limit, ind
+			less = false
+		}
+
+		if ind.Block != b {
+			// TODO: Could be extended to include disjointed loop headers.
+			// I don't think this is causing missed optimizations in real world code often.
+			// See https://go.dev/issue/63955
+			continue
+		}
+
+		// Expect the increment to be a nonzero constant.
+		if !inc.isGenericIntConst() {
+			continue
+		}
+		step := inc.AuxInt
+		if step == 0 {
+			continue
+		}
+
+		// startBody is the edge that eventually returns to the loop header.
+		var startBody Edge
+		switch {
+		case sdom.IsAncestorEq(b.Succs[0].b, loopReturn.b):
+			startBody = b.Succs[0]
+		case sdom.IsAncestorEq(b.Succs[1].b, loopReturn.b):
+			// if x { goto exit } else { goto entry } is identical to if !x { goto entry } else { goto exit }
+			startBody = b.Succs[1]
+			less = !less
+			inclusive = !inclusive
+		default:
+			continue
+		}
+
+		// Increment sign must match comparison direction.
+		// When incrementing, the termination comparison must be ind </<= limit.
+		// When decrementing, the termination comparison must be ind >/>= limit.
+		// See issue 26116.
+		if step > 0 && !less {
+			continue
+		}
+		if step < 0 && less {
+			continue
+		}
+
+		// Up to now we extracted the induction variable (ind),
+		// the increment delta (inc), the temporary sum (nxt),
+		// the initial value (init) and the limiting value (limit).
+		//
+		// We also know that ind has the form (Phi init nxt) where
+		// nxt is (Add inc nxt) which means: 1) inc dominates nxt
+		// and 2) there is a loop starting at inc and containing nxt.
+		//
+		// We need to prove that the induction variable is incremented
+		// only when it's smaller than the limiting value.
+		// Two conditions must happen listed below to accept ind
+		// as an induction variable.
+
+		// First condition: loop entry has a single predecessor, which
+		// is the header block.  This implies that b.Succs[0] is
+		// reached iff ind < limit.
+		if len(startBody.b.Preds) != 1 {
+			// the other successor must exit the loop.
+			continue
+		}
+
+		// Second condition: startBody.b dominates nxt so that
+		// nxt is computed when inc < limit.
+		if !sdom.IsAncestorEq(startBody.b, nxt.Block) {
+			// inc+ind can only be reached through the branch that enters the loop.
+			continue
+		}
+
+		// Check for overflow/underflow. We need to make sure that inc never causes
+		// the induction variable to wrap around.
+		// We use a function wrapper here for easy return true / return false / keep going logic.
+		// This function returns true if the increment will never overflow/underflow.
+		ok := func() bool {
+			if step > 0 {
+				if limit.isGenericIntConst() {
+					// Figure out the actual largest value.
+					v := limit.AuxInt
+					if !inclusive {
+						if v == minSignedValue(limit.Type) {
+							return false // < minint is never satisfiable.
+						}
+						v--
+					}
+					if init.isGenericIntConst() {
+						// Use stride to compute a better lower limit.
+						if init.AuxInt > v {
+							return false
+						}
+						// TODO(1.27): investigate passing a smaller-magnitude overflow limit to addU
+						// for addWillOverflow.
+						v = addU(init.AuxInt, diff(v, init.AuxInt)/uint64(step)*uint64(step))
+					}
+					if addWillOverflow(v, step, maxSignedValue(ind.Type)) {
+						return false
+					}
+					if inclusive && v != limit.AuxInt || !inclusive && v+1 != limit.AuxInt {
+						// We know a better limit than the programmer did. Use our limit instead.
+						limit = f.constVal(limit.Op, limit.Type, v, true)
+						inclusive = true
+					}
+					return true
+				}
+				if step == 1 && !inclusive {
+					// Can't overflow because maxint is never a possible value.
+					return true
+				}
+				// If the limit is not a constant, check to see if it is a
+				// negative offset from a known non-negative value.
+				knn, k := findKNN(limit)
+				if knn == nil || k < 0 {
+					return false
+				}
+				// limit == (something nonnegative) - k. That subtraction can't underflow, so
+				// we can trust it.
+				if inclusive {
+					// ind <= knn - k cannot overflow if step is at most k
+					return step <= k
+				}
+				// ind < knn - k cannot overflow if step is at most k+1
+				return step <= k+1 && k != maxSignedValue(limit.Type)
+			} else { // step < 0
+				if limit.isGenericIntConst() {
+					// Figure out the actual smallest value.
+					v := limit.AuxInt
+					if !inclusive {
+						if v == maxSignedValue(limit.Type) {
+							return false // > maxint is never satisfiable.
+						}
+						v++
+					}
+					if init.isGenericIntConst() {
+						// Use stride to compute a better lower limit.
+						if init.AuxInt < v {
+							return false
+						}
+						// TODO(1.27): investigate passing a smaller-magnitude underflow limit to subU
+						// for subWillUnderflow.
+						v = subU(init.AuxInt, diff(init.AuxInt, v)/uint64(-step)*uint64(-step))
+					}
+					if subWillUnderflow(v, -step, minSignedValue(ind.Type)) {
+						return false
+					}
+					if inclusive && v != limit.AuxInt || !inclusive && v-1 != limit.AuxInt {
+						// We know a better limit than the programmer did. Use our limit instead.
+						limit = f.constVal(limit.Op, limit.Type, v, true)
+						inclusive = true
+					}
+					return true
+				}
+				if step == -1 && !inclusive {
+					// Can't underflow because minint is never a possible value.
+					return true
+				}
 			}
 
 			// startBody is the edge that eventually returns to the loop header.
