@@ -324,37 +324,18 @@ func (a *analyzer) inlineAlias(tn *types.TypeName, curId inspector.Cursor) {
 	//   pkg.Id[T]
 	//   pkg.Id[K, V]
 	var expr ast.Expr = id
-	if curId.ParentEdgeKind() == edge.SelectorExpr_Sel {
+	if astutil.IsChildOf(curId, edge.SelectorExpr_Sel) {
 		curId = curId.Parent()
 		expr = curId.Node().(ast.Expr)
 	}
 	// If expr is part of an IndexExpr or IndexListExpr, we'll need that node.
 	// Given C[int], TypeOf(C) is generic but TypeOf(C[int]) is instantiated.
-	switch curId.ParentEdgeKind() {
+	switch ek, _ := curId.ParentEdge(); ek {
 	case edge.IndexExpr_X:
-		curId = curId.Parent()
-		expr = curId.Node().(*ast.IndexExpr)
+		expr = curId.Parent().Node().(*ast.IndexExpr)
 	case edge.IndexListExpr_X:
-		curId = curId.Parent()
-		expr = curId.Node().(*ast.IndexListExpr)
+		expr = curId.Parent().Node().(*ast.IndexListExpr)
 	}
-
-	// Reject inlining of a type alias used to declare an embedded
-	// struct field if doing so would change the field's name.
-	if v, ok := a.pass.TypesInfo.Defs[id].(*types.Var); ok && v.Embedded() {
-		identicalName := false
-		// TODO(adonovan): should we allow a pointer (type A = *pkg.A)?
-		if rhs, ok := alias.Rhs().(*types.Named); ok {
-			identicalName = alias.Obj().Name() == rhs.Obj().Name()
-		}
-		if !identicalName {
-			// Type is embedded, inlining the alias will cause
-			// the field name to be changed, which might break
-			// programs in terms of backwards compatibility.
-			return
-		}
-	}
-
 	t := a.pass.TypesInfo.TypeOf(expr).(*types.Alias) // type of entire identifier
 	if targs := t.TypeArgs(); targs.Len() > 0 {
 		// Instantiate the alias with the type args from this use.
