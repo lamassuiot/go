@@ -665,14 +665,11 @@ func TestMultipleKeyUpdate(t *testing.T) {
 		t.Run(fmt.Sprintf("requestUpdate=%t", requestUpdate), func(t *testing.T) {
 
 			c, s := localPipe(t)
-			clientConfig := testConfigClient.Clone()
-			clientConfig.MinVersion = VersionTLS13
-			clientConfig.MaxVersion = VersionTLS13
-			serverConfig := testConfigServer.Clone()
-			serverConfig.MinVersion = VersionTLS13
-			serverConfig.MaxVersion = VersionTLS13
-			client := Client(c, clientConfig)
-			server := Server(s, serverConfig)
+			cfg := testConfig.Clone()
+			cfg.MinVersion = VersionTLS13
+			cfg.MaxVersion = VersionTLS13
+			client := Client(c, testConfig)
+			server := Server(s, testConfig)
 
 			clientHandshakeDone := make(chan struct{})
 			go func() {
