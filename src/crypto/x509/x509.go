@@ -52,6 +52,9 @@ import (
 	_ "crypto/sha256"
 	_ "crypto/sha512"
 
+	circlPki "cloudflare/circl/pki"
+	circlSign "cloudflare/circl/sign"
+
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -141,6 +144,14 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 			}
 			publicKeyAlgorithm.Parameters.FullBytes = paramBytes
 		}
+	case circlSign.PublicKey:
+		scheme, ok := pub.Scheme().(circlPki.CertificateScheme)
+		if !ok {
+			return nil, pkix.AlgorithmIdentifier{}, errors.New(
+				"x509: circl scheme is not CertificateScheme")
+		}
+		publicKeyBytes, _ = pub.MarshalBinary()
+		publicKeyAlgorithm.Algorithm = scheme.Oid()
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
@@ -240,9 +251,9 @@ const (
 	SHA384WithRSAPSS
 	SHA512WithRSAPSS
 	PureEd25519
-	MLDSA44
-	MLDSA65
-	MLDSA87
+	PureMLDSA44
+	PureMLDSA65
+	PureMLDSA87
 )
 
 func (algo SignatureAlgorithm) isRSAPSS() bool {
@@ -371,6 +382,12 @@ var (
 	// but it's specified by ISO. Microsoft's makecert.exe has been known
 	// to produce certificates with this OID.
 	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
+
+	// ML-DSA OIDs
+	oidSignatureMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+	oidSignatureMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+	oidSignatureMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
+
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -545,16 +562,13 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return ECDSA
 	case oid.Equal(oidPublicKeyEd25519):
 		return Ed25519
-	case oid.Equal(oidPublicKeyMLDSA44),
-		oid.Equal(oidPublicKeyMLDSA65),
-		oid.Equal(oidPublicKeyMLDSA87):
-		// ML-DSA is not available in FIPS 140-3 module v1.0.0.
-		if fips140.Version() == "v1.0.0" {
+	default:
+		scheme := circlPki.SchemeByOid(oid)
+		if scheme == nil {
 			return UnknownPublicKeyAlgorithm
 		}
-		return MLDSA
+		return PublicKeyAlgorithmByCirclScheme(scheme)
 	}
-	return UnknownPublicKeyAlgorithm
 }
 
 // RFC 5480, 2.1.1.1. Named Curve
@@ -1066,7 +1080,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if pubKeyAlgo != Ed25519 && pubKeyAlgo != MLDSA {
+		if pubKeyAlgo != Ed25519 && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil {
 			return ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -1112,28 +1126,17 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 			return errors.New("x509: Ed25519 verification failure")
 		}
 		return
-	case *mldsa.PublicKey:
-		if pubKeyAlgo != MLDSA {
+	case circlSign.PublicKey:
+		scheme := pub.Scheme()
+		expectedAlg := PublicKeyAlgorithmByCirclScheme(scheme)
+		if expectedAlg == UnknownPublicKeyAlgorithm {
+			return ErrUnsupportedAlgorithm
+		}
+		if expectedAlg != pubKeyAlgo {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
-		switch pub.Parameters() {
-		case mldsa.MLDSA44():
-			if algo != MLDSA44 {
-				return signatureMLDSAParametersMismatchError(algo, pub)
-			}
-		case mldsa.MLDSA65():
-			if algo != MLDSA65 {
-				return signatureMLDSAParametersMismatchError(algo, pub)
-			}
-		case mldsa.MLDSA87():
-			if algo != MLDSA87 {
-				return signatureMLDSAParametersMismatchError(algo, pub)
-			}
-		default:
-			return fmt.Errorf("x509: unknown ML-DSA parameters: %s", pub.Parameters())
-		}
-		if err := mldsa.Verify(pub, signed, signature, nil); err != nil {
-			return fmt.Errorf("x509: ML-DSA verification failure: %w", err)
+		if !scheme.Verify(pub, signed, signature, nil) {
+			return fmt.Errorf("x509: %s verification failed", scheme.Name())
 		}
 		return
 	}
@@ -1639,12 +1642,23 @@ func subjectBytes(cert *Certificate) ([]byte, error) {
 // signingParamsForKey returns the signature algorithm and its Algorithm
 // Identifier to use for signing, based on the key type. If sigAlgo is not zero
 // then it overrides the default.
+//
+// Note: This function has been modified for compatiblity with some hybrid PQC operations.
+// It acts as a wrapper for signingParamsForPublicKey 
 func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (SignatureAlgorithm, pkix.AlgorithmIdentifier, error) {
+	return signingParamsForPublicKey(key.Public(), sigAlgo)
+}
+
+// signingParamsForPublicKey returns the signature algorithm and its Algorithm
+// Identifier to use for signing, based on the public key type. If sigAlgo is not
+// zero, then it overrides the default.
+//
+func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm) (SignatureAlgorithm, pkix.AlgorithmIdentifier, error) {
 	var ai pkix.AlgorithmIdentifier
 	var pubType PublicKeyAlgorithm
 	var defaultAlgo SignatureAlgorithm
 
-	switch pub := key.Public().(type) {
+	switch pub := pub.(type) {
 	case *rsa.PublicKey:
 		pubType = RSA
 		defaultAlgo = SHA256WithRSA
@@ -1661,22 +1675,17 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 		default:
 			return 0, ai, errors.New("x509: unsupported elliptic curve")
 		}
-
+	
 	case ed25519.PublicKey:
 		pubType = Ed25519
 		defaultAlgo = PureEd25519
 
-	case *mldsa.PublicKey:
-		pubType = MLDSA
-		switch pub.Parameters() {
-		case mldsa.MLDSA44():
-			defaultAlgo = MLDSA44
-		case mldsa.MLDSA65():
-			defaultAlgo = MLDSA65
-		case mldsa.MLDSA87():
-			defaultAlgo = MLDSA87
-		default:
-			return 0, ai, fmt.Errorf("x509: unsupported ML-DSA parameters: %s", pub.Parameters())
+	case circlSign.PublicKey:
+		scheme := pub.Scheme()
+		pubType = PublicKeyAlgorithmByCirclScheme(scheme)
+		defaultAlgo = SignatureAlgorithmByCirclScheme(scheme)
+		if pubType == UnknownPublicKeyAlgorithm || defaultAlgo == UnknownSignatureAlgorithm {
+			return 0, ai, errors.New("x509: particular circl scheme not supported")
 		}
 
 	default:
