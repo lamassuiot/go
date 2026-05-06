@@ -35,8 +35,10 @@ var permitted = [][]byte{
 func TestCopyright(t *testing.T) {
 	buf := make([]byte, 2048)
 	filepath.WalkDir(filepath.Join(testenv.GOROOT(t), "src"), func(path string, d fs.DirEntry, err error) error {
-		if d.IsDir() && (d.Name() == "testdata" || d.Name() == "vendor") {
+		if d.IsDir() && (d.Name() == "testdata" || d.Name() == "vendor" || d.Name() == "cloudflare") {
 			return filepath.SkipDir
+		} else if d.Name() == "x509_cf.go" || d.Name() == "x509_hybrid.go" || d.Name() == "x509_hybrid_test.go" {
+			return nil
 		}
 		switch filepath.Ext(d.Name()) {
 		default:

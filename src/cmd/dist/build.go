@@ -436,7 +436,7 @@ func findgoversion() string {
 	if m == nil {
 		fatalf("internal/goversion/goversion.go does not contain 'const Version = ...'")
 	}
-	version := fmt.Sprintf("go1.%s-devel_", m[1])
+	version := fmt.Sprintf("go1.%s-pqc-devel_", m[1])
 	switch {
 	case isGitRepo():
 		version += chomp(run(goroot, CheckExit, "git", "log", "-n", "1", "--format=format:%h %cd", "HEAD"))
