@@ -7,4 +7,4 @@ go get example.com/importcrypto
 -- go.mod --
 module m
 
-go 1.27
+go 1.26
