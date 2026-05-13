@@ -6,11 +6,11 @@ It's used by the script test case mod_get_fips140_issue73649
 -- .mod --
 module example.com/importcrypto
 
-go 1.27
+go 1.26
 -- go.mod --
 module example.com/importcrypto
 
-go 1.27
+go 1.26
 -- importcypto.go --
 package p
 
