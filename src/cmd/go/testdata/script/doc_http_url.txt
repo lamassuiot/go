@@ -26,6 +26,6 @@ grep '/example.com/m' $TEST_GODOC_URL_FILE
 -- example.com/m/go.mod --
 module example.com/m/v5
 
-go 1.27
+go 1.26
 -- example.com/m/m.go --
 package m
