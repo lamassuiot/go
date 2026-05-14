@@ -253,6 +253,20 @@ const (
 	PureMLDSA65
 	PureMLDSA87
 
+	// SLH-DSA (RFC 9909) — Pure SLH-DSA parameter sets.
+	PureSLHDSASHA2128s
+	PureSLHDSASHA2128f
+	PureSLHDSASHA2192s
+	PureSLHDSASHA2192f
+	PureSLHDSASHA2256s
+	PureSLHDSASHA2256f
+	PureSLHDSASHAKE128s
+	PureSLHDSASHAKE128f
+	PureSLHDSASHAKE192s
+	PureSLHDSASHAKE192f
+	PureSLHDSASHAKE256s
+	PureSLHDSASHAKE256f
+
 	// Composite ML-DSA+RSA algorithms (draft-ietf-lamps-pq-composite-sigs-19).
 	CompositeMLDSA44RSA2048PSSHA256
 	CompositeMLDSA44RSA2048PKCS15SHA256
@@ -300,6 +314,7 @@ const (
 	ECDSA
 	Ed25519
 	MLDSA
+	SLHDSA
 	CompositeMLDSARSA
 )
 
@@ -310,6 +325,7 @@ var publicKeyAlgoName = [...]string{
 	Ed25519:           "Ed25519",
 	MLDSA:             "ML-DSA",
 	CompositeMLDSARSA: "Composite-ML-DSA-RSA",
+	SLHDSA:            "SLH-DSA",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
