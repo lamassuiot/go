@@ -15,6 +15,7 @@
 package x509
 
 import (
+	"bytes"
 	"crypto"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
@@ -386,6 +387,17 @@ type CompositePublicKey struct {
 
 // Algorithm returns the composite algorithm this key belongs to.
 func (pk *CompositePublicKey) Algorithm() *CompositeAlgorithm { return pk.alg }
+
+// Equal reports whether pk and x have the same algorithm and key material.
+// It implements the interface checked by [crypto/x509.CreateCertificate].
+func (pk *CompositePublicKey) Equal(x crypto.PublicKey) bool {
+	other, ok := x.(*CompositePublicKey)
+	if !ok || pk.alg != other.alg {
+		return false
+	}
+	return bytes.Equal(pk.alg.impl.publicKeyBytes(pk.mldsaPK), pk.alg.impl.publicKeyBytes(other.mldsaPK)) &&
+		pk.rsaPK.Equal(other.rsaPK)
+}
 
 // CompositePrivateKey holds the ML-DSA and RSA private key components for a
 // composite algorithm.

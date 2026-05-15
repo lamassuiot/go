@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
+	"math/big"
 	"testing"
+	"time"
 
 	"crypto/x509"
 )
@@ -320,6 +323,63 @@ func TestCompositeIETFVectors(t *testing.T) {
 			}
 			if !tc.alg.CompositeVerify(pk, msg, nil, sig) {
 				t.Fatal("CompositeVerify failed for freshly generated signature")
+			}
+		})
+	}
+}
+
+// TestCompositeSelfSignedCert verifies that a self-signed X.509 certificate
+// can be created and verified for every composite ML-DSA+RSA algorithm.
+func TestCompositeSelfSignedCert(t *testing.T) {
+	for _, alg := range x509.CompositeAlgorithms {
+		alg := alg
+		t.Run(alg.Name, func(t *testing.T) {
+			t.Parallel()
+
+			pk, sk, err := alg.GenerateCompositeKey(rand.Reader)
+			if err != nil {
+				t.Fatalf("GenerateCompositeKey: %v", err)
+			}
+
+			template := &x509.Certificate{
+				SerialNumber: big.NewInt(1),
+				Subject: pkix.Name{
+					CommonName:   "composite-test",
+					Organization: []string{"Test Org"},
+				},
+				NotBefore:             time.Now().Add(-time.Hour),
+				NotAfter:              time.Now().Add(24 * time.Hour),
+				KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+				BasicConstraintsValid: true,
+				IsCA:                  true,
+			}
+
+			der, err := x509.CreateCertificate(rand.Reader, template, template, pk, sk)
+			if err != nil {
+				t.Fatalf("CreateCertificate: %v", err)
+			}
+
+			cert, err := x509.ParseCertificate(der)
+			if err != nil {
+				t.Fatalf("ParseCertificate: %v", err)
+			}
+
+			if cert.PublicKeyAlgorithm != x509.CompositeMLDSARSA {
+				t.Fatalf("PublicKeyAlgorithm: got %v, want CompositeMLDSARSA", cert.PublicKeyAlgorithm)
+			}
+
+			if err := cert.CheckSignatureFrom(cert); err != nil {
+				t.Fatalf("CheckSignatureFrom: %v", err)
+			}
+
+			// Verify the algorithm OID round-trips through the certificate.
+			parsedPub, ok := cert.PublicKey.(*x509.CompositePublicKey)
+			if !ok {
+				t.Fatalf("cert.PublicKey is %T, want *CompositePublicKey", cert.PublicKey)
+			}
+			if parsedPub.Algorithm() != alg {
+				t.Fatalf("parsed public key algorithm mismatch: got %v, want %v",
+					parsedPub.Algorithm().Name, alg.Name)
 			}
 		})
 	}
