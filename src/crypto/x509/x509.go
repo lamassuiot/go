@@ -143,6 +143,13 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 		}
 		publicKeyBytes, _ = pub.MarshalBinary()
 		publicKeyAlgorithm.Algorithm = scheme.Oid()
+	case *CompositePublicKey:
+		publicKeyAlgorithm.Algorithm = pub.alg.OID
+		var err error
+		publicKeyBytes, err = pub.alg.marshalCompositePublicKey(pub)
+		if err != nil {
+			return nil, pkix.AlgorithmIdentifier{}, err
+		}
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
@@ -245,6 +252,16 @@ const (
 	PureMLDSA44
 	PureMLDSA65
 	PureMLDSA87
+
+	// Composite ML-DSA+RSA algorithms (draft-ietf-lamps-pq-composite-sigs-19).
+	CompositeMLDSA44RSA2048PSSHA256
+	CompositeMLDSA44RSA2048PKCS15SHA256
+	CompositeMLDSA65RSA3072PSSHA512
+	CompositeMLDSA65RSA3072PKCS15SHA512
+	CompositeMLDSA65RSA4096PSSHA512
+	CompositeMLDSA65RSA4096PKCS15SHA512
+	CompositeMLDSA87RSA3072PSSHA512
+	CompositeMLDSA87RSA4096PSSHA512
 )
 
 func (algo SignatureAlgorithm) isRSAPSS() bool {
@@ -283,14 +300,16 @@ const (
 	ECDSA
 	Ed25519
 	MLDSA
+	CompositeMLDSARSA
 )
 
 var publicKeyAlgoName = [...]string{
-	RSA:     "RSA",
-	DSA:     "DSA",
-	ECDSA:   "ECDSA",
-	Ed25519: "Ed25519",
-	MLDSA:   "ML-DSA",
+	RSA:               "RSA",
+	DSA:               "DSA",
+	ECDSA:             "ECDSA",
+	Ed25519:           "Ed25519",
+	MLDSA:             "ML-DSA",
+	CompositeMLDSARSA: "Composite-ML-DSA-RSA",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -378,7 +397,6 @@ var (
 	oidSignatureMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
 	oidSignatureMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
 	oidSignatureMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
-
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -530,6 +548,9 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 	case oid.Equal(oidPublicKeyEd25519):
 		return Ed25519
 	default:
+		if compositeAlgorithmByOID(oid) != nil {
+			return CompositeMLDSARSA
+		}
 		scheme := circlPki.SchemeByOid(oid)
 		if scheme == nil {
 			return UnknownPublicKeyAlgorithm
@@ -1018,7 +1039,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if pubKeyAlgo != Ed25519 && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil {
+		if pubKeyAlgo != Ed25519 && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil && pubKeyAlgo != CompositeMLDSARSA {
 			return ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -1075,6 +1096,18 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		if !scheme.Verify(pub, signed, signature, nil) {
 			return fmt.Errorf("x509: %s verification failed", scheme.Name())
+		}
+		return
+	case *CompositePublicKey:
+		if pubKeyAlgo != CompositeMLDSARSA {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		compAlg := compositeAlgorithmBySigAlgo(algo)
+		if compAlg == nil {
+			return ErrUnsupportedAlgorithm
+		}
+		if !compAlg.CompositeVerify(pub, signed, nil, signature) {
+			return errors.New("x509: composite ML-DSA+RSA verification failure")
 		}
 		return
 	}
@@ -1573,7 +1606,7 @@ func subjectBytes(cert *Certificate) ([]byte, error) {
 // then it overrides the default.
 //
 // Note: This function has been modified for compatiblity with some hybrid PQC operations.
-// It acts as a wrapper for signingParamsForPublicKey 
+// It acts as a wrapper for signingParamsForPublicKey
 func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (SignatureAlgorithm, pkix.AlgorithmIdentifier, error) {
 	return signingParamsForPublicKey(key.Public(), sigAlgo)
 }
@@ -1581,7 +1614,6 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 // signingParamsForPublicKey returns the signature algorithm and its Algorithm
 // Identifier to use for signing, based on the public key type. If sigAlgo is not
 // zero, then it overrides the default.
-//
 func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm) (SignatureAlgorithm, pkix.AlgorithmIdentifier, error) {
 	var ai pkix.AlgorithmIdentifier
 	var pubType PublicKeyAlgorithm
@@ -1604,7 +1636,7 @@ func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm)
 		default:
 			return 0, ai, errors.New("x509: unsupported elliptic curve")
 		}
-	
+
 	case ed25519.PublicKey:
 		pubType = Ed25519
 		defaultAlgo = PureEd25519
@@ -1616,6 +1648,10 @@ func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm)
 		if pubType == UnknownPublicKeyAlgorithm || defaultAlgo == UnknownSignatureAlgorithm {
 			return 0, ai, errors.New("x509: particular circl scheme not supported")
 		}
+
+	case *CompositePublicKey:
+		pubType = CompositeMLDSARSA
+		defaultAlgo = pub.alg.sigAlgo
 
 	default:
 		return 0, ai, errors.New("x509: only RSA, ECDSA and Ed25519 keys supported")

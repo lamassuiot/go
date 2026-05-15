@@ -91,8 +91,11 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 			return nil, fmt.Errorf("x509: invalid X25519 private key: %v", err)
 		}
 		return ecdh.X25519().NewPrivateKey(curvePrivateKey)
-	
+
 	default:
+		if alg := compositeAlgorithmByOID(privKey.Algo.Algorithm); alg != nil {
+			return alg.parseCompositePrivateKey(privKey.PrivateKey)
+		}
 		scheme := circlPki.SchemeByOid(privKey.Algo.Algorithm)
 		if scheme == nil {
 			return nil, fmt.Errorf("x509: PKCS#8 wrapping contained private key with unknown algorithm: %v", privKey.Algo.Algorithm)
@@ -192,6 +195,16 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 			if privKey.PrivateKey, err = marshalECDHPrivateKey(k); err != nil {
 				return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
 			}
+		}
+
+	case *CompositePrivateKey:
+		privKey.Algo = pkix.AlgorithmIdentifier{
+			Algorithm: k.alg.OID,
+		}
+		var err error
+		privKey.PrivateKey, err = k.alg.marshalCompositePrivateKey(k)
+		if err != nil {
+			return nil, fmt.Errorf("x509: failed to marshal composite private key: %v", err)
 		}
 
 	case circlSign.PrivateKey:
