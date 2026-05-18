@@ -4,6 +4,9 @@ on:
     branches:
       - cf
       - direct-fork
+permissions:
+  contents: read
+  packages: write
 jobs:
   test:
     name: Run all.bash
