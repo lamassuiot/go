@@ -565,6 +565,27 @@ var depsRules = `
 	CRYPTO
 	< golang.org/x/crypto/hkdf;
 
+	crypto,
+	encoding/binary,
+	errors,
+	golang.org/x/sys/cpu,
+	hash,
+	io,
+	math/bits
+	< golang.org/x/crypto/blake2b,
+	  golang.org/x/crypto/blake2s;
+
+	crypto/sha3,
+	crypto/subtle,
+	encoding/binary,
+	errors,
+	golang.org/x/sys/cpu,
+	hash,
+	io,
+	math/bits,
+	unsafe
+	< golang.org/x/crypto/sha3;
+
 	CGO, fmt, net !< CRYPTO;
 
 	# CRYPTO-MATH is crypto that exposes math/big APIs - no cgo, net; fmt now ok.

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"regexp"
 )
 
 var copyright = []byte("Copyright")
@@ -35,9 +36,10 @@ var permitted = [][]byte{
 func TestCopyright(t *testing.T) {
 	buf := make([]byte, 2048)
 	filepath.WalkDir(filepath.Join(testenv.GOROOT(t), "src"), func(path string, d fs.DirEntry, err error) error {
+		is_x509_mod, _ := regexp.MatchString(`x509_(?:cf\.go|hybrid.*|composite.*)`, d.Name())
 		if d.IsDir() && (d.Name() == "testdata" || d.Name() == "vendor" || d.Name() == "cloudflare") {
 			return filepath.SkipDir
-		} else if d.Name() == "x509_cf.go" || d.Name() == "x509_hybrid.go" || d.Name() == "x509_hybrid_test.go" {
+		} else if is_x509_mod {
 			return nil
 		}
 		switch filepath.Ext(d.Name()) {
