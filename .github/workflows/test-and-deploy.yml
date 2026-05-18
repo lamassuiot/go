@@ -1,0 +1,47 @@
+name: Test and Deploy the Golang Fork
+on:
+  push:
+    branches:
+      - cf
+      - direct-fork
+jobs:
+  test:
+    name: Run all.bash
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run tests
+        run: ./all.bash
+        working-directory: src
+  build_docker_image:
+    name: Build and deploy Docker base image
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+          
+      - run: |
+          echo "SHA1VER=dev-$(git rev-parse HEAD)" >> $GITHUB_ENV
+          
+      - name: Login to Github Registry
+        uses: docker/login-action@v3 
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ci/go.dockerfile
+          build-args: |
+            BASE_IMAGE=alpine:3.14
+            SHA1VER=${{ env.SHA1VER }}
+            VERSION=pqc
+          tags: |
+            ghcr.io/lamassuiot/golang:pqc
+          push: true
+
+
