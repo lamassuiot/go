@@ -29,3 +29,4 @@ COPY --from=builder /pqc-cloudflare-go/lib /usr/local/go-pqc/lib
 
 ENV PATH "/usr/local/go-pqc/bin:$PATH"
 ENV GOROOT="/usr/local/go-pqc"
+ENV GOPROXY=https://proxy.golang.org,direct
