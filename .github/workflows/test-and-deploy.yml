@@ -4,9 +4,6 @@ on:
     branches:
       - cf
       - direct-fork
-permissions:
-  contents: read
-  packages: write
 jobs:
   test:
     name: Run all.bash
@@ -42,9 +39,9 @@ jobs:
           build-args: |
             BASE_IMAGE=alpine:3.14
             SHA1VER=${{ env.SHA1VER }}
-            VERSION=pqc
+            VERSION=latest
           tags: |
-            ghcr.io/lamassuiot/golang:pqc
+            ghcr.io/lamassuiot/golang-pqc:latest
           push: true
 
 
