@@ -6,7 +6,7 @@
 
 FROM golang:1.26 AS builder
 
-RUN apt-get update -y && apt-get install git
+RUN apt-get update -y && apt-get install -y git
 
 WORKDIR /
 RUN git clone -b direct-fork https://github.com/lamassuiot/pqc-cloudflare-go.git
@@ -22,6 +22,8 @@ RUN ./make.bash
 
 FROM ubuntu:22.04
 
+RUN apt-get update -y && apt-get install -y git ca-certificates gcc libc6-dev libpcsclite-dev
+
 COPY --from=builder /pqc-cloudflare-go/bin /usr/local/go-pqc/bin
 COPY --from=builder /pqc-cloudflare-go/pkg /usr/local/go-pqc/pkg
 COPY --from=builder /pqc-cloudflare-go/src /usr/local/go-pqc/src
@@ -29,4 +31,4 @@ COPY --from=builder /pqc-cloudflare-go/lib /usr/local/go-pqc/lib
 
 ENV PATH "/usr/local/go-pqc/bin:$PATH"
 ENV GOROOT="/usr/local/go-pqc"
-ENV GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY="https://proxy.golang.org,direct"
