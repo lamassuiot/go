@@ -2,8 +2,7 @@ name: Test and Deploy the Golang Fork
 on:
   push:
     branches:
-      - cf
-      - direct-fork
+      - master
 jobs:
   test:
     name: Run all.bash
