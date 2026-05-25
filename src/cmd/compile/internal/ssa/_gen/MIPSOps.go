@@ -154,8 +154,8 @@ func init() {
 		{name: "MUL", argLength: 2, reg: regInfo{inputs: []regMask{gpg, gpg}, outputs: []regMask{gp}, clobbers: hi | lo}, asm: "MUL", commutative: true}, // arg0 * arg1
 		{name: "MULT", argLength: 2, reg: gp2hilo, asm: "MUL", commutative: true, typ: "(Int32,Int32)"},                                                  // arg0 * arg1, signed, results hi,lo
 		{name: "MULTU", argLength: 2, reg: gp2hilo, asm: "MULU", commutative: true, typ: "(UInt32,UInt32)"},                                              // arg0 * arg1, unsigned, results hi,lo
-		{name: "DIV", argLength: 2, reg: gp2hilo, asm: "DIV", typ: "(Int32,Int32)"},                                                                      // arg0 / arg1, signed, results hi=arg0%arg1,lo=arg0/arg1
-		{name: "DIVU", argLength: 2, reg: gp2hilo, asm: "DIVU", typ: "(UInt32,UInt32)"},                                                                  // arg0 / arg1, signed, results hi=arg0%arg1,lo=arg0/arg1
+		{name: "DIV", argLength: 2, reg: gp2hilo, asm: "DIV", typ: "(Int32,Int32)", hasSideEffects: true},                                                // arg0 / arg1, signed, results hi=arg0%arg1,lo=arg0/arg1
+		{name: "DIVU", argLength: 2, reg: gp2hilo, asm: "DIVU", typ: "(UInt32,UInt32)", hasSideEffects: true},                                            // arg0 / arg1, signed, results hi=arg0%arg1,lo=arg0/arg1
 
 		{name: "ADDF", argLength: 2, reg: fp21, asm: "ADDF", commutative: true}, // arg0 + arg1
 		{name: "ADDD", argLength: 2, reg: fp21, asm: "ADDD", commutative: true}, // arg0 + arg1
@@ -173,7 +173,6 @@ func init() {
 		{name: "XOR", argLength: 2, reg: gp21, asm: "XOR", commutative: true, typ: "UInt32"}, // arg0 ^ arg1
 		{name: "XORconst", argLength: 1, reg: gp11, asm: "XOR", aux: "Int32", typ: "UInt32"}, // arg0 ^ auxInt
 		{name: "NOR", argLength: 2, reg: gp21, asm: "NOR", commutative: true},                // ^(arg0 | arg1)
-		{name: "NORconst", argLength: 1, reg: gp11, asm: "NOR", aux: "Int32"},                // ^(arg0 | auxInt)
 
 		{name: "NEG", argLength: 1, reg: gp11},                 // -arg0
 		{name: "NEGF", argLength: 1, reg: fp11, asm: "NEGF"},   // -arg0, float32
@@ -260,6 +259,7 @@ func init() {
 		// function calls
 		{name: "CALLstatic", argLength: 1, reg: regInfo{clobbers: callerSave}, aux: "CallOff", clobberFlags: true, call: true},                                               // call static function aux.(*obj.LSym).  arg0=mem, auxint=argsize, returns mem
 		{name: "CALLtail", argLength: 1, reg: regInfo{clobbers: callerSave}, aux: "CallOff", clobberFlags: true, call: true, tailCall: true},                                 //  tail call static function aux.(*obj.LSym).  arg0=mem, auxint=argsize, returns mem
+		{name: "CALLtailinter", argLength: 2, reg: regInfo{inputs: []regMask{gp}, clobbers: callerSave}, aux: "CallOff", clobberFlags: true, call: true, tailCall: true},     //  tail call fn by pointer.  arg0=cpdeptr, arg1=mem, auxint=argsize, returns mem
 		{name: "CALLclosure", argLength: 3, reg: regInfo{inputs: []regMask{gpsp, buildReg("R22"), 0}, clobbers: callerSave}, aux: "CallOff", clobberFlags: true, call: true}, // call function via closure.  arg0=codeptr, arg1=closure, arg2=mem, auxint=argsize, returns mem
 		{name: "CALLinter", argLength: 2, reg: regInfo{inputs: []regMask{gp}, clobbers: callerSave}, aux: "CallOff", clobberFlags: true, call: true},                         // call fn by pointer.  arg0=codeptr, arg1=mem, auxint=argsize, returns mem
 

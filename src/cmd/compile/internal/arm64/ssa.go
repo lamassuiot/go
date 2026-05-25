@@ -162,6 +162,38 @@ func genIndexedOperand(op ssa.Op, base, idx int16) obj.Addr {
 	return mop
 }
 
+// simdRegArng encodes ssa value's register with specified simd arrangement
+func simdRegArng(reg int16, arng int16) int16 {
+	if reg < arm64.REG_F0 || arm64.REG_F31 < reg {
+		base.Fatalf("expected fp register: r%d", reg)
+	}
+	var err error
+	if reg, err = arm64.RegisterArrangement(reg, arng, false); err != nil {
+		base.Fatalf("bad simd register arrangement: %v", err)
+	}
+	return reg
+}
+
+// simdV11 generates element-wise unary vector operations, e.g. VCNT V1.B8, V0.B8
+func simdV11(s *ssagen.State, v *ssa.Value, arrangement int16) *obj.Prog {
+	p := s.Prog(v.Op.Asm())
+	p.From.Type = obj.TYPE_REG
+	p.From.Reg = simdRegArng(v.Args[0].Reg(), arrangement)
+	p.To.Type = obj.TYPE_REG
+	p.To.Reg = simdRegArng(v.Reg(), arrangement)
+	return p
+}
+
+// simdV11Scalar generates vector-to-scalar reduction operations, e.g. VUADDLV V1.B8, V0
+func simdV11Scalar(s *ssagen.State, v *ssa.Value, arrangement int16) *obj.Prog {
+	p := s.Prog(v.Op.Asm())
+	p.From.Type = obj.TYPE_REG
+	p.From.Reg = simdRegArng(v.Args[0].Reg(), arrangement)
+	p.To.Type = obj.TYPE_REG
+	p.To.Reg = v.Reg() - arm64.REG_F0 + arm64.REG_V0
+	return p
+}
+
 func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 	switch v.Op {
 	case ssa.OpCopy, ssa.OpARM64MOVDreg:
@@ -510,14 +542,15 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		ssa.OpARM64MOVWUload,
 		ssa.OpARM64MOVDload,
 		ssa.OpARM64FMOVSload,
-		ssa.OpARM64FMOVDload:
+		ssa.OpARM64FMOVDload,
+		ssa.OpARM64FMOVQload:
 		p := s.Prog(v.Op.Asm())
 		p.From.Type = obj.TYPE_MEM
 		p.From.Reg = v.Args[0].Reg()
 		ssagen.AddAux(&p.From, v)
 		p.To.Type = obj.TYPE_REG
 		p.To.Reg = v.Reg()
-	case ssa.OpARM64LDP, ssa.OpARM64LDPW, ssa.OpARM64LDPSW, ssa.OpARM64FLDPD, ssa.OpARM64FLDPS:
+	case ssa.OpARM64LDP, ssa.OpARM64LDPW, ssa.OpARM64LDPSW, ssa.OpARM64FLDPD, ssa.OpARM64FLDPS, ssa.OpARM64FLDPQ:
 		p := s.Prog(v.Op.Asm())
 		p.From.Type = obj.TYPE_MEM
 		p.From.Reg = v.Args[0].Reg()
@@ -560,6 +593,7 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		ssa.OpARM64MOVDstore,
 		ssa.OpARM64FMOVSstore,
 		ssa.OpARM64FMOVDstore,
+		ssa.OpARM64FMOVQstore,
 		ssa.OpARM64STLRB,
 		ssa.OpARM64STLR,
 		ssa.OpARM64STLRW:
@@ -584,7 +618,7 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		p.To = genIndexedOperand(v.Op, v.Args[0].Reg(), v.Args[1].Reg())
 		p.From.Type = obj.TYPE_REG
 		p.From.Reg = v.Args[2].Reg()
-	case ssa.OpARM64STP, ssa.OpARM64STPW, ssa.OpARM64FSTPD, ssa.OpARM64FSTPS:
+	case ssa.OpARM64STP, ssa.OpARM64STPW, ssa.OpARM64FSTPD, ssa.OpARM64FSTPS, ssa.OpARM64FSTPQ:
 		p := s.Prog(v.Op.Asm())
 		p.From.Type = obj.TYPE_REGREG
 		p.From.Reg = v.Args[1].Reg()
@@ -963,6 +997,7 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 	case ssa.OpARM64MVN,
 		ssa.OpARM64NEG,
 		ssa.OpARM64FABSD,
+		ssa.OpARM64FABSS,
 		ssa.OpARM64FMOVDfpgp,
 		ssa.OpARM64FMOVDgpfp,
 		ssa.OpARM64FMOVSfpgp,
@@ -1001,7 +1036,12 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		ssa.OpARM64FRINTMD,
 		ssa.OpARM64FRINTND,
 		ssa.OpARM64FRINTPD,
-		ssa.OpARM64FRINTZD:
+		ssa.OpARM64FRINTZD,
+		ssa.OpARM64FRINTAS,
+		ssa.OpARM64FRINTMS,
+		ssa.OpARM64FRINTNS,
+		ssa.OpARM64FRINTPS,
+		ssa.OpARM64FRINTZS:
 		p := s.Prog(v.Op.Asm())
 		p.From.Type = obj.TYPE_REG
 		p.From.Reg = v.Args[0].Reg()
@@ -1010,17 +1050,9 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 	case ssa.OpARM64LoweredRound32F, ssa.OpARM64LoweredRound64F:
 		// input is already rounded
 	case ssa.OpARM64VCNT:
-		p := s.Prog(v.Op.Asm())
-		p.From.Type = obj.TYPE_REG
-		p.From.Reg = (v.Args[0].Reg()-arm64.REG_F0)&31 + arm64.REG_ARNG + ((arm64.ARNG_8B & 15) << 5)
-		p.To.Type = obj.TYPE_REG
-		p.To.Reg = (v.Reg()-arm64.REG_F0)&31 + arm64.REG_ARNG + ((arm64.ARNG_8B & 15) << 5)
+		simdV11(s, v, arm64.ARNG_8B)
 	case ssa.OpARM64VUADDLV:
-		p := s.Prog(v.Op.Asm())
-		p.From.Type = obj.TYPE_REG
-		p.From.Reg = (v.Args[0].Reg()-arm64.REG_F0)&31 + arm64.REG_ARNG + ((arm64.ARNG_8B & 15) << 5)
-		p.To.Type = obj.TYPE_REG
-		p.To.Reg = v.Reg() - arm64.REG_F0 + arm64.REG_V0
+		simdV11Scalar(s, v, arm64.ARNG_8B)
 	case ssa.OpARM64CSEL, ssa.OpARM64CSEL0:
 		r1 := int16(arm64.REGZERO)
 		if v.Op != ssa.OpARM64CSEL0 {
@@ -1314,7 +1346,7 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 
 	case ssa.OpARM64CALLstatic, ssa.OpARM64CALLclosure, ssa.OpARM64CALLinter:
 		s.Call(v)
-	case ssa.OpARM64CALLtail:
+	case ssa.OpARM64CALLtail, ssa.OpARM64CALLtailinter:
 		s.TailCall(v)
 	case ssa.OpARM64LoweredWB:
 		p := s.Prog(obj.ACALL)

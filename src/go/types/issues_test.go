@@ -879,8 +879,7 @@ func TestIssue59944(t *testing.T) {
 	testenv.MustHaveCGO(t)
 
 	// Methods declared on aliases of cgo types are not permitted.
-	const src = `// -gotypesalias=1
-
+	const src = `
 package p
 
 /*
@@ -1028,7 +1027,6 @@ type A = []int
 type S struct{ A }
 `
 
-	t.Setenv("GODEBUG", "gotypesalias=1")
 	pkg := mustTypecheck(src, nil, nil)
 
 	S := pkg.Scope().Lookup("S")
@@ -1172,7 +1170,6 @@ type (
 	T A
 )`
 
-	t.Setenv("GODEBUG", "gotypesalias=1")
 	pkg := mustTypecheck(src, nil, nil)
 	T := pkg.Scope().Lookup("T").(*TypeName)
 	got := T.String() // this must not panic (was issue)

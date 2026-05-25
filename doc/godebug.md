@@ -85,6 +85,9 @@ if the work module's `go.mod` or the workspace's `go.work`
 says `go` `1.20`, then the program defaults to `panicnil=1`,
 matching Go 1.20 instead of Go 1.21.
 
+As an exception, GODEBUGs introduced for security releases
+will have the new behavior apply to all versions.
+
 Because this method of setting GODEBUG defaults was introduced only in Go 1.21,
 programs listing versions of Go earlier than Go 1.20 are configured to match Go 1.20,
 not the older version.
@@ -150,6 +153,22 @@ Packages or programs may define additional settings for internal debugging purpo
 for example,
 see the [runtime documentation](/pkg/runtime#hdr-Environment_Variables)
 and the [go command documentation](/cmd/go#hdr-Build_and_test_caching).
+
+### Go 1.27
+
+Go 1.27 removed the `gotypesalias` setting, as noted in the [Go 1.22](#go-122) section.
+
+Go 1.27 added a new `htmlmetacontenturlescape` setting that controls whether
+html/template will escape URLs in the `url=` portion of the content attribute of
+HTML meta tags. The default `htmlmetacontentescape=1` will cause URLs to be
+escaped. Setting `htmlmetacontentescape=0` disables this behavior. To avoid
+content injection attacks, this setting and default was backported to Go 1.25.8
+and Go 1.26.1.
+
+Go 1.27 changes the default for `tracebacklabels` (added in [Go 1.26](#go-126))
+to `1`. This opt-out is expected to be kept indefinitely in case goroutine
+labels acquire sensitive information that shouldn't be made available in
+tracebacks.
 
 ### Go 1.26
 

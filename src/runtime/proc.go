@@ -127,11 +127,14 @@ var (
 // done to start up the runtime. It is built by the linker.
 var runtime_inittasks []*initTask
 
-// main_init_done is a signal used by cgocallbackg that initialization
-// has been completed. It is made before _cgo_notify_runtime_init_done,
-// so all cgo calls can rely on it existing. When main_init is complete,
-// it is closed, meaning cgocallbackg can reliably receive from it.
-var main_init_done chan bool
+// mainInitDone is a signal used by cgocallbackg that initialization
+// has been completed. If this is false, wait on mainInitDoneChan.
+var mainInitDone atomic.Bool
+
+// mainInitDoneChan is closed after initialization has been completed.
+// It is made before _cgo_notify_runtime_init_done, so all cgo
+// calls can rely on it existing.
+var mainInitDoneChan chan bool
 
 //go:linkname main_main main.main
 func main_main()
@@ -213,16 +216,16 @@ func main() {
 	gcenable()
 	defaultGOMAXPROCSUpdateEnable() // don't STW before runtime initialized.
 
-	main_init_done = make(chan bool)
+	mainInitDoneChan = make(chan bool)
 	if iscgo {
 		if _cgo_pthread_key_created == nil {
 			throw("_cgo_pthread_key_created missing")
 		}
 
-		if _cgo_thread_start == nil {
-			throw("_cgo_thread_start missing")
-		}
 		if GOOS != "windows" {
+			if _cgo_thread_start == nil {
+				throw("_cgo_thread_start missing")
+			}
 			if _cgo_setenv == nil {
 				throw("_cgo_setenv missing")
 			}
@@ -265,7 +268,8 @@ func main() {
 	// of collecting statistics in malloc and newproc
 	inittrace.active = false
 
-	close(main_init_done)
+	mainInitDone.Store(true)
+	close(mainInitDoneChan)
 
 	needUnlock = false
 	unlockOSThread()
@@ -778,6 +782,7 @@ func cpuinit(env string) {
 	case "loong64":
 		loong64HasLAMCAS = cpu.Loong64.HasLAMCAS
 		loong64HasLAM_BH = cpu.Loong64.HasLAM_BH
+		loong64HasDBAR_HINTS = cpu.Loong64.HasDBAR_HINTS
 		loong64HasLSX = cpu.Loong64.HasLSX
 
 	case "riscv64":
@@ -1964,6 +1969,11 @@ func mstartm0() {
 //go:nosplit
 func mPark() {
 	gp := getg()
+	// This M might stay parked through an entire GC cycle.
+	// Erase any leftovers on the signal stack.
+	if goexperiment.RuntimeSecret {
+		eraseSecretsSignalStk()
+	}
 	notesleep(&gp.m.park)
 	noteclear(&gp.m.park)
 }
@@ -2904,11 +2914,8 @@ func newm(fn func(), pp *p, id int64) {
 }
 
 func newm1(mp *m) {
-	if iscgo {
+	if iscgo && _cgo_thread_start != nil {
 		var ts cgothreadstart
-		if _cgo_thread_start == nil {
-			throw("_cgo_thread_start missing")
-		}
 		ts.g.set(mp.g0)
 		ts.tls = (*uint64)(unsafe.Pointer(&mp.tls[0]))
 		ts.fn = unsafe.Pointer(abi.FuncPCABI0(mstart))
@@ -4630,6 +4637,30 @@ func reentersyscall(pc, sp, bp uintptr) {
 	// Disable preemption because during this function g is in Gsyscall status,
 	// but can have inconsistent g->sched, do not let GC observe it.
 	gp.m.locks++
+
+	// This M may have a signal stack that is dirtied with secret information
+	// (see package "runtime/secret"). Since it's about to go into a syscall for
+	// an arbitrary amount of time and the G that put the secret info there
+	// might have returned from secret.Do, we have to zero it out now, lest we
+	// break the guarantee that secrets are purged by the next GC after a return
+	// to secret.Do.
+	//
+	// It might be tempting to think that we only need to zero out this if we're
+	// not running in secret mode anymore, but that leaves an ABA problem. The G
+	// that put the secrets onto our signal stack may not be the one that is
+	// currently executing.
+	//
+	// Logically, we should erase this when we lose our P, not when we enter the
+	// syscall. This would avoid a zeroing in the case where the call returns
+	// almost immediately. Since we use this path for cgo calls as well, these
+	// fast "syscalls" are quite common. However, since we only erase the signal
+	// stack if we were delivered a signal in secret mode and considering the
+	// cross-thread synchronization cost for the P, it hardly seems worth it.
+	//
+	// TODO(dmo): can we encode the goid into mp.signalSecret and avoid the ABA problem?
+	if goexperiment.RuntimeSecret {
+		eraseSecretsSignalStk()
+	}
 
 	// Entersyscall must not call any function that might split/grow the stack.
 	// (See details in comment above.)

@@ -174,7 +174,7 @@ func TestCompareAPI(t *testing.T) {
 	}
 	for _, tt := range tests {
 		buf := new(strings.Builder)
-		gotOK := compareAPI(buf, tt.features, tt.required, tt.exception)
+		gotOK := compareAPI(buf, tt.features, tt.required, tt.exception, false)
 		if gotOK != tt.ok {
 			t.Errorf("%s: ok = %v; want %v", tt.name, gotOK, tt.ok)
 		}
@@ -232,7 +232,6 @@ var warmupCache = sync.OnceFunc(func() {
 	// Warm up the import cache in parallel.
 	var wg sync.WaitGroup
 	for _, context := range contexts {
-		context := context
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

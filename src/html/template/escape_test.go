@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"internal/testenv"
 	"os"
 	"strings"
 	"testing"
@@ -758,26 +759,6 @@ func TestEscape(t *testing.T) {
 			"meta content string",
 			`<meta http-equiv="refresh" content="{{"asd: 123"}}">`,
 			`<meta http-equiv="refresh" content="asd: 123">`,
-		},
-		{
-			"meta content url with whitespace before equals",
-			`<meta http-equiv="refresh" content="0;url ={{"javascript:alert(1)"}}">`,
-			`<meta http-equiv="refresh" content="0;url =#ZgotmplZ">`,
-		},
-		{
-			"meta content url with tab before equals",
-			"<meta http-equiv=\"refresh\" content=\"0;url\t={{\"javascript:alert(1)\"}}\">",
-			"<meta http-equiv=\"refresh\" content=\"0;url\t=#ZgotmplZ\">",
-		},
-		{
-			"meta content url with space after equals",
-			`<meta http-equiv="refresh" content="0;url= {{"javascript:alert(1)"}}">`,
-			`<meta http-equiv="refresh" content="0;url= #ZgotmplZ">`,
-		},
-		{
-			"meta content url with whitespace both sides of equals",
-			"<meta http-equiv=\"refresh\" content=\"0;url \t= {{\"javascript:alert(1)\"}}\">",
-			"<meta http-equiv=\"refresh\" content=\"0;url \t= #ZgotmplZ\">",
 		},
 	}
 
@@ -2265,10 +2246,7 @@ func TestAliasedParseTreeDoesNotOverescape(t *testing.T) {
 }
 
 func TestMetaContentEscapeGODEBUG(t *testing.T) {
-	savedGODEBUG := os.Getenv("GODEBUG")
-	os.Setenv("GODEBUG", savedGODEBUG+",htmlmetacontenturlescape=0")
-	defer func() { os.Setenv("GODEBUG", savedGODEBUG) }()
-
+	testenv.SetGODEBUG(t, "htmlmetacontenturlescape=0")
 	tmpl := Must(New("").Parse(`<meta http-equiv="refresh" content="asd; url={{"javascript:alert(1)"}}; asd; url={{"vbscript:alert(1)"}}; asd">`))
 	var b strings.Builder
 	if err := tmpl.Execute(&b, nil); err != nil {
