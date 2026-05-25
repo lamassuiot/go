@@ -18,7 +18,6 @@ import (
 	"internal/testenv"
 	"math/big"
 	"net"
-	"os"
 	"regexp"
 	"runtime"
 	"strings"
