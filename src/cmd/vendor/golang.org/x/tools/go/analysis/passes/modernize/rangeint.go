@@ -390,7 +390,7 @@ func isScalarLvalue(info *types.Info, curId inspector.Cursor) bool {
 	return false
 }
 
-func isInteger(t types.Type) bool {
-	basic, ok := t.Underlying().(*types.Basic)
-	return ok && basic.Info()&types.IsInteger != 0
-}
+// func isInteger(t types.Type) bool {
+// 	basic, ok := t.Underlying().(*types.Basic)
+// 	return ok && basic.Info()&types.IsInteger != 0
+// }
