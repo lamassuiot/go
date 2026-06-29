@@ -24,9 +24,9 @@ var circlSchemes = [...]struct {
 	alg    PublicKeyAlgorithm
 	scheme circlSign.Scheme
 }{
-	{PureMLDSA44, MLDSA, mldsa44.Scheme()},
-	{PureMLDSA65, MLDSA, mldsa65.Scheme()},
-	{PureMLDSA87, MLDSA, mldsa87.Scheme()},
+	{MLDSA44, MLDSA, mldsa44.Scheme()},
+	{MLDSA65, MLDSA, mldsa65.Scheme()},
+	{MLDSA87, MLDSA, mldsa87.Scheme()},
 	// SLH-DSA (RFC 9909) — Pure SLH-DSA parameter sets.
 	{PureSLHDSASHA2128s, SLHDSA, slhdsa.SHA2_128s.Scheme()},
 	{PureSLHDSASHA2128f, SLHDSA, slhdsa.SHA2_128f.Scheme()},
