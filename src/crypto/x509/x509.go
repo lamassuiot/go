@@ -258,9 +258,9 @@ const (
 	SHA384WithRSAPSS
 	SHA512WithRSAPSS
 	PureEd25519
-	PureMLDSA44
-	PureMLDSA65
-	PureMLDSA87
+	MLDSA44
+	MLDSA65
+	MLDSA87
 
 	// SLH-DSA (RFC 9909) — Pure SLH-DSA parameter sets.
 	PureSLHDSASHA2128s
@@ -418,10 +418,6 @@ var (
 	// to produce certificates with this OID.
 	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
 
-	// ML-DSA OIDs
-	oidSignatureMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
-	oidSignatureMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
-	oidSignatureMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -596,6 +592,14 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return ECDSA
 	case oid.Equal(oidPublicKeyEd25519):
 		return Ed25519
+	case oid.Equal(oidPublicKeyMLDSA44),
+		oid.Equal(oidPublicKeyMLDSA65),
+		oid.Equal(oidPublicKeyMLDSA87):
+		// ML-DSA is not available in FIPS 140-3 module v1.0.0.
+		if fips140.Version() == "v1.0.0" {
+			return UnknownPublicKeyAlgorithm
+		}
+		return MLDSA
 	default:
 		if compositeAlgorithmByOID(oid) != nil {
 			return CompositeMLDSARSA
@@ -1117,7 +1121,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if pubKeyAlgo != Ed25519 && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil && pubKeyAlgo != CompositeMLDSARSA {
+		if pubKeyAlgo != Ed25519 && pubKeyAlgo != MLDSA && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil && pubKeyAlgo != CompositeMLDSARSA {
 			return ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -1161,6 +1165,30 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		if !ed25519.Verify(pub, signed, signature) {
 			return errors.New("x509: Ed25519 verification failure")
+		}
+		return
+	case *mldsa.PublicKey:
+		if pubKeyAlgo != MLDSA {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		switch pub.Parameters() {
+		case mldsa.MLDSA44():
+			if algo != MLDSA44 {
+				return signatureMLDSAParametersMismatchError(algo, pub)
+			}
+		case mldsa.MLDSA65():
+			if algo != MLDSA65 {
+				return signatureMLDSAParametersMismatchError(algo, pub)
+			}
+		case mldsa.MLDSA87():
+			if algo != MLDSA87 {
+				return signatureMLDSAParametersMismatchError(algo, pub)
+			}
+		default:
+			return fmt.Errorf("x509: unknown ML-DSA parameters: %s", pub.Parameters())
+		}
+		if err := mldsa.Verify(pub, signed, signature, nil); err != nil {
+			return fmt.Errorf("x509: ML-DSA verification failure: %w", err)
 		}
 		return
 	case circlSign.PublicKey:
@@ -1727,6 +1755,19 @@ func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm)
 	case ed25519.PublicKey:
 		pubType = Ed25519
 		defaultAlgo = PureEd25519
+
+	case *mldsa.PublicKey:
+		pubType = MLDSA
+		switch pub.Parameters() {
+		case mldsa.MLDSA44():
+			defaultAlgo = MLDSA44
+		case mldsa.MLDSA65():
+			defaultAlgo = MLDSA65
+		case mldsa.MLDSA87():
+			defaultAlgo = MLDSA87
+		default:
+			return 0, ai, fmt.Errorf("x509: unsupported ML-DSA parameters: %s", pub.Parameters())
+		}
 
 	case circlSign.PublicKey:
 		scheme := pub.Scheme()
