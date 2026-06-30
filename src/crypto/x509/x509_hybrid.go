@@ -589,11 +589,11 @@ func deriveDeltaCSR(baseCsr *CertificateRequest, parsedAttribute *deltaCertifica
 	}
 	deltaTBSCertificateRequest.Raw = rawDeltaTBSCertificateRequest
 
-	deltaCSR := certificateRequest{
-		TBSCSR:             deltaTBSCertificateRequest,
-		SignatureAlgorithm: parsedAttribute.SignatureAlgorithm,
-		SignatureValue:     signature,
-	}
+	deltaCSR := certificateRequest{}
+	deltaCSR.TBSCSR = deltaTBSCertificateRequest
+	deltaCSR.SignatureAlgorithm.Algorithm = parsedAttribute.SignatureAlgorithm.Algorithm
+	deltaCSR.SignatureAlgorithm.Parameters = parsedAttribute.SignatureAlgorithm.Parameters
+	deltaCSR.SignatureValue = signature
 
 	// Encode the CSR
 	deltaCSRDer, err := asn1.Marshal(deltaCSR)

@@ -2195,8 +2195,8 @@ type tbsCertificateRequest struct {
 }
 
 type certificateRequest struct {
-	Raw                asn1.RawContent
-	TBSCSR             tbsCertificateRequest
+	Raw    asn1.RawContent
+	TBSCSR tbsCertificateRequest
 	SignatureAlgorithm struct {
 		Raw        asn1.RawContent
 		Algorithm  asn1.ObjectIdentifier
