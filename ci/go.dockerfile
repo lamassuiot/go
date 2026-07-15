@@ -8,10 +8,10 @@ FROM golang:1.26 AS builder
 
 RUN apt-get update -y && apt-get install -y git
 
-WORKDIR /
-RUN git clone -b direct-fork https://github.com/lamassuiot/pqc-cloudflare-go.git
+WORKDIR /lamassu-go
+RUN git clone https://github.com/lamassuiot/go.git
 
-WORKDIR /pqc-cloudflare-go/src
+WORKDIR /lamassu-go/go/src
 RUN ./make.bash
 
 #################################################################################################
@@ -24,10 +24,10 @@ FROM ubuntu:22.04
 
 RUN apt-get update -y && apt-get install -y git ca-certificates gcc libc6-dev libpcsclite-dev
 
-COPY --from=builder /pqc-cloudflare-go/bin /usr/local/go-pqc/bin
-COPY --from=builder /pqc-cloudflare-go/pkg /usr/local/go-pqc/pkg
-COPY --from=builder /pqc-cloudflare-go/src /usr/local/go-pqc/src
-COPY --from=builder /pqc-cloudflare-go/lib /usr/local/go-pqc/lib
+COPY --from=builder /lamassu-go/go/bin /usr/local/go-pqc/bin
+COPY --from=builder /lamassu-go/go/pkg /usr/local/go-pqc/pkg
+COPY --from=builder /lamassu-go/go/src /usr/local/go-pqc/src
+COPY --from=builder /lamassu-go/go/lib /usr/local/go-pqc/lib
 
 ENV PATH "/usr/local/go-pqc/bin:$PATH"
 ENV GOROOT="/usr/local/go-pqc"
