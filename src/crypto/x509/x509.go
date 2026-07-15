@@ -1478,12 +1478,17 @@ func buildCertExtensions(template *Certificate, subjectIsEmpty bool, authorityKe
 		ret[n].Id = oidExtensionNameConstraints
 		ret[n].Critical = template.PermittedDNSDomainsCritical
 
-		ipAndMask := func(ipNet *net.IPNet) []byte {
+		ipAndMask := func(ipNet *net.IPNet) ([]byte, error) {
 			maskedIP := ipNet.IP.Mask(ipNet.Mask)
+			// This is extremely unlikely to actually happen, but lets save people from doing something they
+			// probably shouldn't.
+			if len(maskedIP) == net.IPv6len && maskedIP.To4() != nil {
+				return nil, errors.New("x509: IP constraint contained IPv4-mapped IPv6 address with a IPv6 mask")
+			}
 			ipAndMask := make([]byte, 0, len(maskedIP)+len(ipNet.Mask))
 			ipAndMask = append(ipAndMask, maskedIP...)
 			ipAndMask = append(ipAndMask, ipNet.Mask...)
-			return ipAndMask
+			return ipAndMask, nil
 		}
 
 		serialiseConstraints := func(dns []string, ips []*net.IPNet, emails []string, uriDomains []string) (der []byte, err error) {
@@ -1502,9 +1507,13 @@ func buildCertExtensions(template *Certificate, subjectIsEmpty bool, authorityKe
 			}
 
 			for _, ipNet := range ips {
+				encodedIPNet, err := ipAndMask(ipNet)
+				if err != nil {
+					return nil, err
+				}
 				b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 					b.AddASN1(cryptobyte_asn1.Tag(7).ContextSpecific(), func(b *cryptobyte.Builder) {
-						b.AddBytes(ipAndMask(ipNet))
+						b.AddBytes(encodedIPNet)
 					})
 				})
 			}
