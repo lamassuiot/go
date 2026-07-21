@@ -1511,6 +1511,7 @@ func buildCertExtensions(template *Certificate, subjectIsEmpty bool, authorityKe
 				if err != nil {
 					return nil, err
 				}
+
 				b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 					b.AddASN1(cryptobyte_asn1.Tag(7).ContextSpecific(), func(b *cryptobyte.Builder) {
 						b.AddBytes(encodedIPNet)
