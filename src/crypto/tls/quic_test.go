@@ -549,13 +549,48 @@ func TestQUICStartContextPropagation(t *testing.T) {
 	}
 }
 
+func TestQUICClientHelloInfoConn(t *testing.T) {
+	clientHelloInfoConn, peerConn := net.Pipe()
+	t.Cleanup(func() {
+		clientHelloInfoConn.Close()
+		peerConn.Close()
+	})
+	clientConfig := &QUICConfig{TLSConfig: testConfigClient.Clone()}
+	clientConfig.TLSConfig.MinVersion = VersionTLS13
+	serverConfig := &QUICConfig{
+		TLSConfig:           testConfigServer.Clone(),
+		ClientHelloInfoConn: clientHelloInfoConn,
+	}
+	serverConfig.TLSConfig.MinVersion = VersionTLS13
+	var called bool
+	serverConfig.TLSConfig.GetConfigForClient = func(info *ClientHelloInfo) (*Config, error) {
+		called = true
+		if info.Conn != clientHelloInfoConn {
+			t.Errorf("ClientHelloInfo.Conn = %v, want %v", info.Conn, clientHelloInfoConn)
+		}
+		return nil, nil
+	}
+	cli := newTestQUICClient(t, clientConfig)
+	cli.conn.SetTransportParameters(nil)
+	srv := newTestQUICServer(t, serverConfig)
+	srv.conn.SetTransportParameters(nil)
+	if err := runTestQUICConnection(context.Background(), cli, srv, nil); err != nil {
+		t.Fatalf("error during connection handshake: %v", err)
+	}
+	if !called {
+		t.Fatal("GetConfigForClient was not called")
+	}
+}
+
 func TestQUICContextCancelation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	config := &QUICConfig{TLSConfig: testConfig.Clone()}
-	config.TLSConfig.MinVersion = VersionTLS13
-	cli := newTestQUICClient(t, config)
+	clientConfig := &QUICConfig{TLSConfig: testConfigClient.Clone()}
+	clientConfig.TLSConfig.MinVersion = VersionTLS13
+	serverConfig := &QUICConfig{TLSConfig: testConfigServer.Clone()}
+	serverConfig.TLSConfig.MinVersion = VersionTLS13
+	cli := newTestQUICClient(t, clientConfig)
 	cli.conn.SetTransportParameters(nil)
-	srv := newTestQUICServer(t, config)
+	srv := newTestQUICServer(t, serverConfig)
 	srv.conn.SetTransportParameters(nil)
 	// Verify that canceling the connection context concurrently does not cause any races.
 	// See https://go.dev/issue/77274.

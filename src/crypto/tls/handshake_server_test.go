@@ -2182,7 +2182,7 @@ func testHandshakeChainExpiryResumption(t *testing.T, version uint16) {
 			IsCA:                  true,
 			BasicConstraintsValid: true,
 		}
-		rootDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+		rootDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testECDSAP521Key.PublicKey, testECDSAP521Key)
 		if err != nil {
 			t.Fatalf("CreateCertificate: %v", err)
 		}
@@ -2198,12 +2198,12 @@ func testHandshakeChainExpiryResumption(t *testing.T, version uint16) {
 			NotAfter:  leafNotAfter,
 			KeyUsage:  x509.KeyUsageDigitalSignature,
 		}
-		leafCertDER, err := x509.CreateCertificate(rand.Reader, tmpl, root, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+		leafCertDER, err := x509.CreateCertificate(rand.Reader, tmpl, root, &testECDSAP256Key.PublicKey, testECDSAP521Key)
 		if err != nil {
 			t.Fatalf("CreateCertificate: %v", err)
 		}
 		tmpl.NotBefore, tmpl.NotAfter = leafNotAfter.Add(-time.Hour*24*365), leafNotAfter.Add(-time.Hour*24*364)
-		expiredLeafDERCertDER, err := x509.CreateCertificate(rand.Reader, tmpl, root, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+		expiredLeafDERCertDER, err := x509.CreateCertificate(rand.Reader, tmpl, root, &testECDSAP256Key.PublicKey, testECDSAP521Key)
 		if err != nil {
 			t.Fatalf("CreateCertificate: %v", err)
 		}
@@ -2214,11 +2214,11 @@ func testHandshakeChainExpiryResumption(t *testing.T, version uint16) {
 		t.Run(name, func(t *testing.T) {
 			initialLeafDER, expiredLeafDER, initialRoot := createChain(leafNotAfter, rootNotAfter)
 
-			serverConfig := testConfig.Clone()
+			serverConfig := testConfigServer.Clone()
 			serverConfig.MaxVersion = version
 			serverConfig.Certificates = []Certificate{{
 				Certificate: [][]byte{initialLeafDER, expiredLeafDER},
-				PrivateKey:  testECDSAPrivateKey,
+				PrivateKey:  testECDSAP256Key,
 			}}
 			serverConfig.ClientCAs = x509.NewCertPool()
 			serverConfig.ClientCAs.AddCert(initialRoot)
@@ -2229,11 +2229,11 @@ func testHandshakeChainExpiryResumption(t *testing.T, version uint16) {
 			serverConfig.InsecureSkipVerify = false
 			serverConfig.ServerName = "expired-resume.example.com"
 
-			clientConfig := testConfig.Clone()
+			clientConfig := testConfigClient.Clone()
 			clientConfig.MaxVersion = version
 			clientConfig.Certificates = []Certificate{{
 				Certificate: [][]byte{initialLeafDER, expiredLeafDER},
-				PrivateKey:  testECDSAPrivateKey,
+				PrivateKey:  testECDSAP256Key,
 			}}
 			clientConfig.RootCAs = x509.NewCertPool()
 			clientConfig.RootCAs.AddCert(initialRoot)
@@ -2267,7 +2267,7 @@ func testHandshakeChainExpiryResumption(t *testing.T, version uint16) {
 			freshLeafDER, expiredLeafDER, freshRoot := createChain(expiredNow.Add(time.Hour), expiredNow.Add(time.Hour))
 			clientConfig.Certificates = []Certificate{{
 				Certificate: [][]byte{freshLeafDER, expiredLeafDER},
-				PrivateKey:  testECDSAPrivateKey,
+				PrivateKey:  testECDSAP256Key,
 			}}
 			serverConfig.Time = func() time.Time {
 				return expiredNow
@@ -2301,7 +2301,7 @@ func testHandshakeGetConfigForClientDifferentClientCAs(t *testing.T, version uin
 		IsCA:                  true,
 		BasicConstraintsValid: true,
 	}
-	rootDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+	rootDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testECDSAP521Key.PublicKey, testECDSAP521Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
@@ -2309,7 +2309,7 @@ func testHandshakeGetConfigForClientDifferentClientCAs(t *testing.T, version uin
 	if err != nil {
 		t.Fatalf("ParseCertificate: %v", err)
 	}
-	rootDER, err = x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testRSA2048PrivateKey.PublicKey, testRSA2048PrivateKey)
+	rootDER, err = x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testRSA2048Key.PublicKey, testRSA2048Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
@@ -2325,20 +2325,20 @@ func testHandshakeGetConfigForClientDifferentClientCAs(t *testing.T, version uin
 		NotAfter:  now.Add(time.Hour * 24),
 		KeyUsage:  x509.KeyUsageDigitalSignature,
 	}
-	certA, err := x509.CreateCertificate(rand.Reader, tmpl, rootA, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+	certA, err := x509.CreateCertificate(rand.Reader, tmpl, rootA, &testECDSAP256Key.PublicKey, testECDSAP521Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
-	certB, err := x509.CreateCertificate(rand.Reader, tmpl, rootB, &testECDSAPrivateKey.PublicKey, testRSA2048PrivateKey)
+	certB, err := x509.CreateCertificate(rand.Reader, tmpl, rootB, &testECDSAP256Key.PublicKey, testRSA2048Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
 
-	serverConfig := testConfig.Clone()
+	serverConfig := testConfigServer.Clone()
 	serverConfig.MaxVersion = version
 	serverConfig.Certificates = []Certificate{{
 		Certificate: [][]byte{certA},
-		PrivateKey:  testECDSAPrivateKey,
+		PrivateKey:  testECDSAP256Key,
 	}}
 	serverConfig.Time = func() time.Time {
 		return now
@@ -2359,11 +2359,11 @@ func testHandshakeGetConfigForClientDifferentClientCAs(t *testing.T, version uin
 	serverConfig.InsecureSkipVerify = false
 	serverConfig.ServerName = "example.com"
 
-	clientConfig := testConfig.Clone()
+	clientConfig := testConfigClient.Clone()
 	clientConfig.MaxVersion = version
 	clientConfig.Certificates = []Certificate{{
 		Certificate: [][]byte{certA},
-		PrivateKey:  testECDSAPrivateKey,
+		PrivateKey:  testECDSAP256Key,
 	}}
 	clientConfig.ClientSessionCache = NewLRUClientSessionCache(32)
 	clientConfig.RootCAs = x509.NewCertPool()
@@ -2419,7 +2419,7 @@ func testHandshakeChangeRootCAsResumption(t *testing.T, version uint16) {
 		IsCA:                  true,
 		BasicConstraintsValid: true,
 	}
-	rootDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+	rootDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testECDSAP521Key.PublicKey, testECDSAP521Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
@@ -2427,7 +2427,7 @@ func testHandshakeChangeRootCAsResumption(t *testing.T, version uint16) {
 	if err != nil {
 		t.Fatalf("ParseCertificate: %v", err)
 	}
-	rootDER, err = x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testRSA2048PrivateKey.PublicKey, testRSA2048PrivateKey)
+	rootDER, err = x509.CreateCertificate(rand.Reader, tmpl, tmpl, &testRSA2048Key.PublicKey, testRSA2048Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
@@ -2443,20 +2443,20 @@ func testHandshakeChangeRootCAsResumption(t *testing.T, version uint16) {
 		NotAfter:  now.Add(time.Hour * 24),
 		KeyUsage:  x509.KeyUsageDigitalSignature,
 	}
-	certA, err := x509.CreateCertificate(rand.Reader, tmpl, rootA, &testECDSAPrivateKey.PublicKey, testECDSAPrivateKey)
+	certA, err := x509.CreateCertificate(rand.Reader, tmpl, rootA, &testECDSAP256Key.PublicKey, testECDSAP521Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
-	certB, err := x509.CreateCertificate(rand.Reader, tmpl, rootB, &testECDSAPrivateKey.PublicKey, testRSA2048PrivateKey)
+	certB, err := x509.CreateCertificate(rand.Reader, tmpl, rootB, &testECDSAP256Key.PublicKey, testRSA2048Key)
 	if err != nil {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
 
-	serverConfig := testConfig.Clone()
+	serverConfig := testConfigServer.Clone()
 	serverConfig.MaxVersion = version
 	serverConfig.Certificates = []Certificate{{
 		Certificate: [][]byte{certA},
-		PrivateKey:  testECDSAPrivateKey,
+		PrivateKey:  testECDSAP256Key,
 	}}
 	serverConfig.Time = func() time.Time {
 		return now
@@ -2467,11 +2467,11 @@ func testHandshakeChangeRootCAsResumption(t *testing.T, version uint16) {
 	serverConfig.InsecureSkipVerify = false
 	serverConfig.ServerName = "example.com"
 
-	clientConfig := testConfig.Clone()
+	clientConfig := testConfigClient.Clone()
 	clientConfig.MaxVersion = version
 	clientConfig.Certificates = []Certificate{{
 		Certificate: [][]byte{certA},
-		PrivateKey:  testECDSAPrivateKey,
+		PrivateKey:  testECDSAP256Key,
 	}}
 	clientConfig.ClientSessionCache = NewLRUClientSessionCache(32)
 	clientConfig.RootCAs = x509.NewCertPool()

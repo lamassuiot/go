@@ -753,8 +753,6 @@ func (fd *FD) ReadFrom(buf []byte) (int, syscall.Sockaddr, error) {
 	}
 	defer fd.readUnlock()
 
-	fd.pin('r', &buf[0])
-
 	rsa := newWSARsa()
 	defer wsaRsaPool.Put(rsa)
 	n, err := fd.execIO('r', func(o *operation) (qty uint32, err error) {
@@ -783,8 +781,6 @@ func (fd *FD) ReadFromInet4(buf []byte, sa4 *syscall.SockaddrInet4) (int, error)
 	}
 	defer fd.readUnlock()
 
-	fd.pin('r', &buf[0])
-
 	rsa := newWSARsa()
 	defer wsaRsaPool.Put(rsa)
 	n, err := fd.execIO('r', func(o *operation) (qty uint32, err error) {
@@ -812,8 +808,6 @@ func (fd *FD) ReadFromInet6(buf []byte, sa6 *syscall.SockaddrInet6) (int, error)
 		return 0, err
 	}
 	defer fd.readUnlock()
-
-	fd.pin('r', &buf[0])
 
 	rsa := newWSARsa()
 	defer wsaRsaPool.Put(rsa)

@@ -708,7 +708,7 @@ func maybeSwitchForGoInstallVersion(ld *modload.Loader, minVers string) {
 		allowed = nil
 	}
 	noneSelected := func(path string) (version string) { return "none" }
-	_, err = modload.QueryPackages(loaderstate, ctx, path, version, noneSelected, allowed)
+	_, err = modload.QueryPackages(ld, ctx, path, version, noneSelected, allowed)
 	if errors.Is(err, gover.ErrTooNew) {
 		// Run early switch, same one go install or go run would eventually do,
 		// if it understood all the command-line flags.

@@ -4532,6 +4532,14 @@ func (s *state) assignWhichMayOverlap(left ir.Node, right *ssa.Value, deref bool
 				s.boundsCheck(z, z, ssa.BoundsIndex, false)
 				return
 			}
+			if t.Size() == 0 {
+				_ = s.expr(left.X) // Evaluating left.X for any side-effects.
+				// Generate bounds check for left, since this can happen
+				// for 0-size assignment case, see issue #79236.
+				len := s.constInt(types.Types[types.TINT], n)
+				s.boundsCheck(i, len, ssa.BoundsIndex, false)
+				return
+			}
 			if n != 1 {
 				// This can happen in weird, always-panics cases, like:
 				//     var x [0][2]int
@@ -4541,9 +4549,8 @@ func (s *state) assignWhichMayOverlap(left ir.Node, right *ssa.Value, deref bool
 				// they are somewhere inside an outer [0].
 				// We can ignore the actual assignment, it is dynamically
 				// unreachable. See issue 77635.
-				return
-			}
-			if t.Size() == 0 {
+				// Still, evaluating left.X for any side-effects.
+				_ = s.expr(left.X)
 				return
 			}
 
@@ -5255,6 +5262,7 @@ func (s *state) addr(n ir.Node) *ssa.Value {
 		// &x[i], which will always panic when evaluated.
 		// We just return something reasonable in this case.
 		// It will be dynamically unreachable. See issue 77635.
+		s.boundsCheckArrayIndex(n)
 		return s.newValue1A(ssa.OpAddr, n.Type().PtrTo(), ir.Syms.Zerobase, s.sb)
 	}
 

@@ -650,6 +650,16 @@ var urltests = []URLTest{
 		},
 		"",
 	},
+	// OmitHost with a Path starting with //
+	{
+		"",
+		&URL{
+			Scheme:   "http",
+			OmitHost: true,
+			Path:     "//host/path",
+		},
+		"http:%2F/host/path",
+	},
 }
 
 // more useful string for debugging than fmt's struct printer

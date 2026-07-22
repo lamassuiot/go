@@ -226,22 +226,9 @@ func preserveStmt(curFn *ir.Func, stmt ir.Node) ir.Node {
 			stmt = typecheck.AssignExpr(n)
 			n = stmt.(*ir.AssignStmt)
 		}
-		// Peel down struct and slice indexing to get the names
-		name := getAddressableNameFromNode(n.X)
-		if name != nil {
-			debugName(name, n.Pos())
-			ret = keepAliveAt([]ir.Node{name}, n)
-		} else if deref, ok := n.X.(*ir.StarExpr); ok && deref != nil {
-			ret = keepAliveAt([]ir.Node{deref}, n)
-			if base.Flag.LowerM > 1 {
-				base.WarnfAt(n.Pos(), "dereference will be kept alive")
-			}
-		} else if base.Flag.LowerM > 1 {
-			base.WarnfAt(n.Pos(), "expr is unknown to bloop pass")
-		}
 		return keepAliveAt(getKeepAliveNodes(n.Pos(), n.X), n)
 	case *ir.AssignListStmt:
-		ns := []ir.Node{}
+		var ns ir.Nodes
 		hasBlank := false
 		for i, lhs := range n.Lhs {
 			if ir.IsBlank(lhs) {
@@ -259,127 +246,6 @@ func preserveStmt(curFn *ir.Func, stmt ir.Node) ir.Node {
 					// Unrecognized shapes, skip?
 					base.WarnfAt(n.Pos(), "unrecognized shape for assign list stmt for blank assignment")
 					continue
-				}
-				tmp := typecheck.TempAt(n.Pos(), curFn, typ)
-				n.Lhs[i] = tmp
-				n.PtrInit().Append(typecheck.Stmt(ir.NewDecl(n.Pos(), ir.ODCL, tmp)))
-				hasBlank = true
-				lhs = tmp
-			}
-			name := getAddressableNameFromNode(lhs)
-			if name != nil {
-				debugName(name, n.Pos())
-				ns = append(ns, name)
-			} else if deref, ok := lhs.(*ir.StarExpr); ok && deref != nil {
-				ns = append(ns, deref)
-				if base.Flag.LowerM > 1 {
-					base.WarnfAt(n.Pos(), "dereference will be kept alive")
-				}
-			} else if base.Flag.LowerM > 1 {
-				base.WarnfAt(n.Pos(), "expr is unknown to bloop pass")
-			}
-		}
-		if hasBlank {
-			// blank nodes are rewritten to temps, we need to typecheck the node again.
-			n.Def = true
-			stmt = typecheck.AssignExpr(n)
-			n = stmt.(*ir.AssignListStmt)
-		}
-		ret = keepAliveAt(ns, n)
-	case *ir.AssignOpStmt:
-		name := getAddressableNameFromNode(n.X)
-		if name != nil {
-			debugName(name, n.Pos())
-			ret = keepAliveAt([]ir.Node{name}, n)
-		} else if deref, ok := n.X.(*ir.StarExpr); ok && deref != nil {
-			ret = keepAliveAt([]ir.Node{deref}, n)
-			if base.Flag.LowerM > 1 {
-				base.WarnfAt(n.Pos(), "dereference will be kept alive")
-			}
-		} else if base.Flag.LowerM > 1 {
-			base.WarnfAt(n.Pos(), "expr is unknown to bloop pass")
-		}
-	case *ir.CallExpr:
-		curNode := stmt
-		if n.Fun != nil && n.Fun.Type() != nil && n.Fun.Type().NumResults() != 0 {
-			ns := []ir.Node{}
-			// This function's results are not assigned, assign them to
-			// auto tmps and then keepAliveAt these autos.
-			// Note: markStmt assumes the context that it's called - this CallExpr is
-			// not within another OAS2, which is guaranteed by the case above.
-			results := n.Fun.Type().Results()
-			lhs := make([]ir.Node, len(results))
-			for i, res := range results {
-				tmp := typecheck.TempAt(n.Pos(), curFn, res.Type)
-				lhs[i] = tmp
-				ns = append(ns, tmp)
-			}
-
-			// Create an assignment statement.
-			assign := typecheck.AssignExpr(
-				ir.NewAssignListStmt(n.Pos(), ir.OAS2, lhs,
-					[]ir.Node{n})).(*ir.AssignListStmt)
-			assign.Def = true
-			for _, tmp := range lhs {
-				// Place temp declarations in the loop body to help escape analysis.
-				assign.PtrInit().Append(typecheck.Stmt(ir.NewDecl(assign.Pos(), ir.ODCL, tmp.(*ir.Name))))
-			}
-			curNode = assign
-			plural := ""
-			if len(results) > 1 {
-				plural = "s"
-			}
-			if base.Flag.LowerM > 1 {
-				base.WarnfAt(n.Pos(), "function result%s will be kept alive", plural)
-			}
-			ret = keepAliveAt(ns, curNode)
-		} else {
-			// This function probably doesn't return anything, keep its args alive.
-			argTmps := []ir.Node{}
-			names := []ir.Node{}
-			for i, a := range n.Args {
-				if name := getAddressableNameFromNode(a); name != nil {
-					// If they are name, keep them alive directly.
-					debugName(name, n.Pos())
-					names = append(names, name)
-				} else if a.Op() == ir.OSLICELIT {
-					// variadic args are encoded as slice literal.
-					s := a.(*ir.CompLitExpr)
-					ns := []ir.Node{}
-					for i, elem := range s.List {
-						if name := getAddressableNameFromNode(elem); name != nil {
-							debugName(name, n.Pos())
-							ns = append(ns, name)
-						} else {
-							// We need a temporary to save this arg.
-							tmp := typecheck.TempAt(elem.Pos(), curFn, elem.Type())
-							assign := ir.NewAssignStmt(elem.Pos(), tmp, elem)
-							assign.Def = true
-							// Place temp declarations in the loop body to help escape analysis.
-							assign.PtrInit().Append(typecheck.Stmt(ir.NewDecl(assign.Pos(), ir.ODCL, tmp)))
-							argTmps = append(argTmps, typecheck.AssignExpr(assign))
-							names = append(names, tmp)
-							s.List[i] = tmp
-							if base.Flag.LowerM > 1 {
-								base.WarnfAt(n.Pos(), "function arg will be kept alive")
-							}
-						}
-					}
-					names = append(names, ns...)
-				} else {
-					// expressions, we need to assign them to temps and change the original arg to reference
-					// them.
-					tmp := typecheck.TempAt(n.Pos(), curFn, a.Type())
-					assign := ir.NewAssignStmt(n.Pos(), tmp, a)
-					assign.Def = true
-					// Place temp declarations in the loop body to help escape analysis.
-					assign.PtrInit().Append(typecheck.Stmt(ir.NewDecl(assign.Pos(), ir.ODCL, tmp)))
-					argTmps = append(argTmps, typecheck.AssignExpr(assign))
-					names = append(names, tmp)
-					n.Args[i] = tmp
-					if base.Flag.LowerM > 1 {
-						base.WarnfAt(n.Pos(), "function arg will be kept alive")
-					}
 				}
 				tmp := typecheck.TempAt(n.Pos(), curFn, typ)
 				n.Lhs[i] = tmp

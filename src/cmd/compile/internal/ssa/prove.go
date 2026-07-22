@@ -1593,6 +1593,8 @@ func prove(f *Func) {
 			// Since this induction variable is not used for anything but counting the iterations,
 			// no point in putting it into the facts table.
 		}
+
+		maybeRewriteLoopToDownwardCountingLoop(f, v)
 	}
 
 	ft := newFactsTable(f)

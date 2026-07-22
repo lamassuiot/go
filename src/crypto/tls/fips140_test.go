@@ -9,7 +9,8 @@ import (
 	"crypto/elliptic"
 	"crypto/fips140"
 	"crypto/internal/boring"
-	ifips140 "crypto/internal/fips140"
+	"crypto/internal/cryptotest"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -18,7 +19,6 @@ import (
 	"internal/testenv"
 	"math/big"
 	"net"
-	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -64,28 +64,12 @@ func generateKeyShare(group CurveID) keyShare {
 	return shares[0]
 }
 
-func rerunWithFIPS140Enforced(t *testing.T) {
-	t.Helper()
-	if err := ifips140.Supported(); err != nil {
-		t.Skipf("test requires FIPS 140 mode: %v", err)
-	}
-	nameRegex := "^" + regexp.QuoteMeta(t.Name()) + "$"
-	cmd := testenv.Command(t, testenv.Executable(t), "-test.run="+nameRegex, "-test.v")
-	cmd.Env = append(cmd.Environ(), "GODEBUG=fips140=only")
-	out, err := cmd.CombinedOutput()
-	t.Logf("running with GODEBUG=fips140=only:\n%s", out)
-	if err != nil {
-		t.Errorf("fips140=only subprocess failed: %v", err)
-	}
-}
-
-var testConfigFIPS140 *Config
-
 func TestFIPSServerProtocolVersion(t *testing.T) {
 	test := func(t *testing.T, name string, v uint16, msg string) {
 		t.Run(name, func(t *testing.T) {
 			serverConfig := testConfigFIPS140.Clone()
 			serverConfig.MinVersion = VersionSSL30
+			serverConfig.MaxVersion = VersionTLS13
 			clientConfig := testConfigFIPS140.Clone()
 			clientConfig.MinVersion = v
 			clientConfig.MaxVersion = v
@@ -120,7 +104,7 @@ func TestFIPSServerProtocolVersion(t *testing.T) {
 	})
 
 	if !fips140.Enforced() {
-		rerunWithFIPS140Enforced(t)
+		cryptotest.RerunWithFIPS140Enforced(t)
 	}
 }
 
@@ -209,9 +193,6 @@ func isFIPSSignatureScheme(alg SignatureScheme) bool {
 }
 
 func TestFIPSServerCipherSuites(t *testing.T) {
-	serverConfig := testConfigFIPS140.Clone()
-	serverConfig.Certificates = make([]Certificate, 1)
-
 	for _, id := range allCipherSuitesIncludingTLS13() {
 		t.Run(fmt.Sprintf("suite=%s", CipherSuiteName(id)), func(t *testing.T) {
 			serverConfig := testConfigFIPS140.Clone()
@@ -247,19 +228,15 @@ func TestFIPSServerCipherSuites(t *testing.T) {
 	}
 
 	if !fips140.Enforced() {
-		rerunWithFIPS140Enforced(t)
+		cryptotest.RerunWithFIPS140Enforced(t)
 	}
 }
 
 func TestFIPSServerCurves(t *testing.T) {
-	serverConfig := testConfigFIPS140.Clone()
-	serverConfig.CurvePreferences = nil
-	serverConfig.BuildNameToCertificate()
-
-	for _, curveid := range defaultCurvePreferences() {
+	for _, curveid := range curvePreferenceOrder() {
 		t.Run(fmt.Sprintf("curve=%v", curveid), func(t *testing.T) {
-			clientConfig := testConfigFIPS140.Clone()
-			clientConfig.CurvePreferences = []CurveID{curveid}
+			testConfig := testConfigFIPS140.Clone()
+			testConfig.CurvePreferences = []CurveID{curveid}
 
 			runWithFIPSDisabled(t, func(t *testing.T) {
 				if _, _, err := testHandshake(t, testConfig, testConfig); err != nil {
@@ -280,7 +257,7 @@ func TestFIPSServerCurves(t *testing.T) {
 	}
 
 	if !fips140.Enforced() {
-		rerunWithFIPS140Enforced(t)
+		cryptotest.RerunWithFIPS140Enforced(t)
 	}
 }
 
@@ -307,25 +284,9 @@ func TestFIPSServerSignatureAndHash(t *testing.T) {
 
 	for _, sigHash := range defaultSupportedSignatureAlgorithms() {
 		t.Run(fmt.Sprintf("%v", sigHash), func(t *testing.T) {
-			serverConfig := testConfigFIPS140.Clone()
-			serverConfig.Certificates = make([]Certificate, 1)
-
-			testingOnlySupportedSignatureAlgorithms = []SignatureScheme{sigHash}
-
-			sigType, _, _ := typeAndHashFromSignatureScheme(sigHash)
-			switch sigType {
-			case signaturePKCS1v15, signatureRSAPSS:
-				serverConfig.CipherSuites = []uint16{TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}
-				serverConfig.Certificates[0].Certificate = [][]byte{testRSAPSS2048Certificate}
-				serverConfig.Certificates[0].PrivateKey = testRSAPSS2048PrivateKey
-			case signatureEd25519:
-				serverConfig.CipherSuites = []uint16{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256}
-				serverConfig.Certificates[0].Certificate = [][]byte{testEd25519Certificate}
-				serverConfig.Certificates[0].PrivateKey = testEd25519PrivateKey
-			case signatureECDSA:
-				serverConfig.CipherSuites = []uint16{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256}
-				serverConfig.Certificates[0].Certificate = [][]byte{testECDSACertificate}
-				serverConfig.Certificates[0].PrivateKey = testECDSAPrivateKey
+			isMLDSA := sigHash == MLDSA44 || sigHash == MLDSA65 || sigHash == MLDSA87
+			if isMLDSA {
+				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
 			}
 			serverConfig := testConfigFIPS140.Clone()
 			testingOnlySupportedSignatureAlgorithms = []SignatureScheme{sigHash}
@@ -360,7 +321,7 @@ func TestFIPSServerSignatureAndHash(t *testing.T) {
 	}
 
 	if !fips140.Enforced() {
-		rerunWithFIPS140Enforced(t)
+		cryptotest.RerunWithFIPS140Enforced(t)
 	}
 }
 
@@ -487,7 +448,7 @@ func TestFIPSCertAlgs(t *testing.T) {
 	// server verifying client cert
 	testClientCert := func(t *testing.T, desc string, pool *x509.CertPool, key any, list [][]byte, ok bool) {
 		clientConfig := testConfigFIPS140.Clone()
-		clientConfig.ServerName = "example.com"
+		clientConfig.InsecureSkipVerify = true
 		clientConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
 		clientConfig.Time = func() time.Time { return time.Unix(0, 0) }
 

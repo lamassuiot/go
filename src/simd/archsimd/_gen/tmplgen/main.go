@@ -1096,6 +1096,10 @@ func (x {{.VType}}) Masked(mask Mask{{.WxC}}) {{.VType}} {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: {{.CPUfeature}}
+//
+// Deprecated: use x.IfElse(mask, y)
+//
+//go:fix inline
 func (x {{.VType}}) Merge(y {{.VType}}, mask Mask{{.WxC}}) {{.VType}} {
    return x.IfElse(mask, y)
 }
@@ -1136,6 +1140,10 @@ func (x {{.VType}}) Masked(mask Mask{{.WxC}}) {{.VType}} {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
+//
+// Deprecated: use x.IfElse(mask, y)
+//
+//go:fix inline
 func (x {{.VType}}) Merge(y {{.VType}}, mask Mask{{.WxC}}) {{.VType}} {
    return x.IfElse(mask, y)
 }
