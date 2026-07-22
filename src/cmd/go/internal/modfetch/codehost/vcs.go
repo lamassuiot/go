@@ -266,36 +266,6 @@ var vcsCmds = map[string]*vcsCmd{
 		doReadZip: svnReadZip,
 	},
 
-	"bzr": {
-		vcs: "bzr",
-		init: func(remote string) []string {
-			return []string{"bzr", "branch", "--use-existing-dir", "--", remote, "."}
-		},
-		fetch: []string{
-			"bzr", "pull", "--overwrite-tags",
-		},
-		tags: func(remote string) []string {
-			return []string{"bzr", "tags"}
-		},
-		tagRE:         re(`(?m)^\S+`),
-		badLocalRevRE: re(`^revno:-`),
-		statLocal: func(rev, remote string) []string {
-			return []string{"bzr", "log", "-l1", "--long", "--show-ids", fmt.Sprintf("--revision=%s", rev)}
-		},
-		parseStat: bzrParseStat,
-		latest:    "revno:-1",
-		readFile: func(rev, file, remote string) []string {
-			return []string{"bzr", "cat", fmt.Sprintf("--revision=%s", rev), "--", file}
-		},
-		readZip: func(rev, subdir, remote, target string) []string {
-			extra := []string{}
-			if subdir != "" {
-				extra = []string{"./" + subdir}
-			}
-			return str.StringList("bzr", "export", "--format=zip", fmt.Sprintf("--revision=%s", rev), "--root=prefix/", "--", target, extra)
-		},
-	},
-
 	"fossil": {
 		vcs: "fossil",
 		init: func(remote string) []string {

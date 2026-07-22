@@ -1210,7 +1210,7 @@ func CreateModFile(ld *Loader, ctx context.Context, modPath string) {
 	}
 	modFile := new(modfile.File)
 	modFile.AddModuleStmt(modPath)
-	loaderstate.MainModules = makeMainModules(loaderstate, []module.Version{modFile.Module.Mod}, []string{modRoot}, []*modfile.File{modFile}, []*modFileIndex{nil}, nil)
+	ld.MainModules = makeMainModules(ld, []module.Version{modFile.Module.Mod}, []string{modRoot}, []*modfile.File{modFile}, []*modFileIndex{nil}, nil)
 	addGoStmt(modFile, modFile.Module.Mod, gover.Local()) // Add the go directive before converted module requirements.
 
 	rs := requirementsFromModFiles(ld, ctx, nil, []*modfile.File{modFile}, nil)

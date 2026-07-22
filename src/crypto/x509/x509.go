@@ -1882,10 +1882,9 @@ var emptyASN1Subject = []byte{0x30, 0}
 //
 // The returned slice is the certificate in DER encoding.
 //
-// The currently supported key types are *rsa.PublicKey, *ecdsa.PublicKey,
-// ed25519.PublicKey, and *mldsa.PublicKey. pub must be a supported key type,
-// and priv must be a crypto.Signer or crypto.MessageSigner with a supported
-// public key.
+// The currently supported key types are *rsa.PublicKey, *ecdsa.PublicKey and
+// ed25519.PublicKey. pub must be a supported key type, and priv must be a
+// crypto.Signer or crypto.MessageSigner with a supported public key.
 //
 // The AuthorityKeyId will be taken from the SubjectKeyId of parent, if any,
 // unless the resulting certificate is self-signed. Otherwise the value from
@@ -1903,9 +1902,6 @@ var emptyASN1Subject = []byte{0x30, 0}
 // be marshaled instead of the Policies field. This changed in Go 1.24. The Policies field can
 // be used to marshal policy OIDs which have components that are larger than 31
 // bits.
-//
-// IP addresses in IPAddresses which are in their IPv4-mapped IPv6 form will always be encoded
-// in their IPv4 form.
 func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv any) ([]byte, error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
@@ -2296,9 +2292,8 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 // priv is the private key to sign the CSR with, and the corresponding public
 // key will be included in the CSR. It must implement crypto.Signer or
 // crypto.MessageSigner and its Public() method must return a *rsa.PublicKey or
-// a *ecdsa.PublicKey or a ed25519.PublicKey or a *mldsa.PublicKey.
-// (A *rsa.PrivateKey, *ecdsa.PrivateKey or ed25519.PrivateKey or
-// *mldsa.PrivateKey satisfies this.)
+// a *ecdsa.PublicKey or a ed25519.PublicKey. (A *rsa.PrivateKey,
+// *ecdsa.PrivateKey or ed25519.PrivateKey satisfies this.)
 //
 // The returned slice is the certificate request in DER encoding.
 func CreateCertificateRequest(rand io.Reader, template *CertificateRequest, priv any) (csr []byte, err error) {
@@ -2489,11 +2484,14 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 		}
 	}
 
-	subject, err := parseName(in.TBSCSR.Subject.FullBytes)
-	if err != nil {
+	var subject pkix.RDNSequence
+	if rest, err := asn1.Unmarshal(in.TBSCSR.Subject.FullBytes, &subject); err != nil {
 		return nil, err
+	} else if len(rest) != 0 {
+		return nil, errors.New("x509: trailing data after X.509 Subject")
 	}
-	out.Subject.FillFromRDNSequence(subject)
+
+	out.Subject.FillFromRDNSequence(&subject)
 
 	if out.Extensions, err = parseCSRExtensions(in.TBSCSR.RawAttributes); err != nil {
 		return nil, err

@@ -35,10 +35,10 @@ import (
 // A Cmd describes how to use a version control system
 // like Mercurial, Git, or Subversion.
 type Cmd struct {
-	Name      string
-	Cmd       string     // name of binary to invoke command
-	Env       []string   // any environment values to set/override
-	RootNames []rootName // filename and mode indicating the root of a checkout directory
+	Name  string
+	Cmd   string      // name of binary to invoke command
+	Env   []string    // any environment values to set/override
+	Roots []isVCSRoot // filters to identify repository root directories
 
 	Scheme  []string
 	PingCmd string
@@ -147,8 +147,8 @@ var vcsHg = &Cmd{
 	// HGPLAIN=+strictflags turns off additional output that a user may have
 	// enabled via config options or certain extensions.
 	Env: []string{"HGPLAIN=+strictflags"},
-	RootNames: []rootName{
-		{filename: ".hg", isDir: true},
+	Roots: []isVCSRoot{
+		vcsDirRoot(".hg"),
 	},
 
 	Scheme:  []string{"https", "http", "ssh"},
@@ -248,76 +248,6 @@ func gitStatus(vcsGit *Cmd, rootDir string) (Status, error) {
 			return Status{}, err
 		}
 	}
-
-	return Status{
-		Revision:    rev,
-		CommitTime:  commitTime,
-		Uncommitted: uncommitted,
-	}, nil
-}
-
-// vcsBzr describes how to use Bazaar.
-var vcsBzr = &Cmd{
-	Name: "Bazaar",
-	Cmd:  "bzr",
-	RootNames: []rootName{
-		{filename: ".bzr", isDir: true},
-	},
-
-	Scheme:  []string{"https", "http", "bzr", "bzr+ssh"},
-	PingCmd: "info -- {scheme}://{repo}",
-	Status:  bzrStatus,
-}
-
-func bzrStatus(vcsBzr *Cmd, rootDir string) (Status, error) {
-	outb, err := vcsBzr.runOutputVerboseOnly(rootDir, "version-info")
-	if err != nil {
-		return Status{}, err
-	}
-	out := string(outb)
-
-	// Expect (non-empty repositories only):
-	//
-	// revision-id: gopher@gopher.net-20211021072330-qshok76wfypw9lpm
-	// date: 2021-09-21 12:00:00 +1000
-	// ...
-	var rev string
-	var commitTime time.Time
-
-	for line := range strings.SplitSeq(out, "\n") {
-		i := strings.IndexByte(line, ':')
-		if i < 0 {
-			continue
-		}
-		key := line[:i]
-		value := strings.TrimSpace(line[i+1:])
-
-		switch key {
-		case "revision-id":
-			rev = value
-		case "date":
-			var err error
-			commitTime, err = time.Parse("2006-01-02 15:04:05 -0700", value)
-			if err != nil {
-				return Status{}, errors.New("unable to parse output of bzr version-info")
-			}
-		}
-	}
-
-	outb, err = vcsBzr.runOutputVerboseOnly(rootDir, "status")
-	if err != nil {
-		return Status{}, err
-	}
-
-	// Skip warning when working directory is set to an older revision.
-	if bytes.HasPrefix(outb, []byte("working tree is out of date")) {
-		i := bytes.IndexByte(outb, '\n')
-		if i < 0 {
-			i = len(outb)
-		}
-		outb = outb[:i]
-	}
-	uncommitted := len(outb) > 0
 
 	return Status{
 		Revision:    rev,
@@ -484,28 +414,6 @@ func (v *Cmd) run1(dir string, cmdline string, keyval []string, verbose bool) ([
 	args := strings.Fields(cmdline)
 	for i, arg := range args {
 		args[i] = expand(m, arg)
-	}
-
-	if len(args) >= 2 && args[0] == "--go-internal-mkdir" {
-		var err error
-		if filepath.IsAbs(args[1]) {
-			err = os.Mkdir(args[1], fs.ModePerm)
-		} else {
-			err = os.Mkdir(filepath.Join(dir, args[1]), fs.ModePerm)
-		}
-		if err != nil {
-			return nil, err
-		}
-		args = args[2:]
-	}
-
-	if len(args) >= 2 && args[0] == "--go-internal-cd" {
-		if filepath.IsAbs(args[1]) {
-			dir = args[1]
-		} else {
-			dir = filepath.Join(dir, args[1])
-		}
-		args = args[2:]
 	}
 
 	_, err := pathcache.LookPath(v.Cmd)

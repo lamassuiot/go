@@ -6,7 +6,6 @@ package typecheck
 
 import (
 	"fmt"
-	"go/constant"
 	"internal/types/errors"
 	"strings"
 

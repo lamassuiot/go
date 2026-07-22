@@ -38,11 +38,6 @@ var StringsCutAnalyzer = &analysis.Analyzer{
 	URL: "https://pkg.go.dev/golang.org/x/tools/go/analysis/passes/modernize#stringscut",
 }
 
-func init() {
-	// Export to gopls until this is a published modernizer.
-	goplsexport.StringsCutModernizer = stringscutAnalyzer
-}
-
 // stringscut offers a fix to replace an occurrence of strings.Index{,Byte} with
 // strings.{Cut,Contains}, and similar fixes for functions in the bytes package.
 // Consider some candidate for replacement i := strings.Index(s, substr).
@@ -769,11 +764,11 @@ func isAfterSlice(info *types.Info, ek edge.Kind, slice *ast.SliceExpr, substr a
 // intervening uses (incl. via aliases) of i that might alter its value.
 func isSliceIndexGuarded(info *types.Info, cur inspector.Cursor, iObj types.Object) bool {
 	for anc := range cur.Enclosing() {
-		switch ek, _ := anc.ParentEdge(); ek {
+		switch anc.ParentEdgeKind() {
 		case edge.IfStmt_Body, edge.IfStmt_Else:
 			ifStmt := anc.Parent().Node().(*ast.IfStmt)
 			check := condChecksIdx(info, ifStmt.Cond, iObj)
-			if ek == edge.IfStmt_Else {
+			if anc.ParentEdgeKind() == edge.IfStmt_Else {
 				check = -check
 			}
 			if check > 0 {

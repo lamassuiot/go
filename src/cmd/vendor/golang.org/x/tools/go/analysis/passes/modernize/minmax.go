@@ -158,7 +158,7 @@ func minmax(pass *analysis.Pass) (any, error) {
 			// If the assignment occurs within a select
 			// comms clause (like "case lhs0 := <-rhs0:"),
 			// there's no way of rewriting it into a min/max call.
-			if ek, _ := prev.ParentEdge(); ek == edge.CommClause_Comm {
+			if prev.ParentEdgeKind() == edge.CommClause_Comm {
 				return
 			}
 

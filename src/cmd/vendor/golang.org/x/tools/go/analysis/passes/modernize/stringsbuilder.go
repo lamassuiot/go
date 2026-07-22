@@ -13,6 +13,7 @@ import (
 	"go/types"
 	"maps"
 	"slices"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -76,7 +77,7 @@ func stringsbuilder(pass *analysis.Pass) (any, error) {
 	// Now check each candidate variable's decl and uses.
 nextcand:
 	for _, v := range slices.SortedFunc(maps.Keys(candidates), lexicalOrder) {
-		var edits []analysis.TextEdit
+		var edits, postEdits []analysis.TextEdit // postEdits are emitted last
 
 		// Check declaration of s has one of these forms:
 		//
@@ -101,8 +102,15 @@ nextcand:
 		if file == lastEditFile && v.Pos() < lastEditEnd {
 			continue
 		}
+		filename := pass.Fset.File(file.FileStart).Name()
+		// Suppress diagnostics in test files, where suggested fixes may increase
+		// verbosity, and performance doesn't matter as much.
+		// See https://go.dev/issue/78613
+		if strings.HasSuffix(filename, "_test.go") {
+			continue
+		}
 
-		ek, _ := def.ParentEdge()
+		ek := def.ParentEdgeKind()
 		if ek == edge.AssignStmt_Lhs &&
 			len(def.Parent().Node().(*ast.AssignStmt).Lhs) == 1 {
 			// Have: s := expr
@@ -194,7 +202,7 @@ nextcand:
 				NewText: fmt.Appendf(nil, " %sBuilder", prefix),
 			})
 
-			if len(spec.Values) > 0 && !isEmptyString(pass.TypesInfo, spec.Values[0]) {
+			if len(spec.Values) > 0 && !isEmptyString(info, spec.Values[0]) {
 				if decl.Rparen.IsValid() {
 					// var decl with explicit parens:
 					//
@@ -274,11 +282,8 @@ nextcand:
 		)
 		for curUse := range index.Uses(v) {
 			// Strip enclosing parens around Ident.
-			ek, _ := curUse.ParentEdge()
-			for ek == edge.ParenExpr_X {
-				curUse = curUse.Parent()
-				ek, _ = curUse.ParentEdge()
-			}
+			curUse = astutil.UnparenEnclosingCursor(curUse)
+			ek := curUse.ParentEdgeKind()
 
 			// intervening reports whether cur has an ancestor of
 			// one of the given types that is within the scope of v.
@@ -358,6 +363,8 @@ nextcand:
 		if numLoopAssigns == 0 {
 			continue nextcand // no += in a loop; reject
 		}
+
+		edits = append(edits, postEdits...)
 
 		lastEditFile = file
 		lastEditEnd = edits[len(edits)-1].End
