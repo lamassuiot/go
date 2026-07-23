@@ -1,8 +1,16 @@
 name: Test and Deploy the Golang Fork
 on:
   push:
-    branches:
-      - master
+  workflow_dispatch:
+    inputs:
+      go_branch:
+        description: "Go release branch to compile"
+        type: choice
+        required: true
+        default: release-branch.go1.27
+        options:
+          - release-branch.go1.26
+          - release-branch.go1.27
 jobs:
   test:
     name: Run all.bash
@@ -23,7 +31,17 @@ jobs:
           
       - run: |
           echo "SHA1VER=dev-$(git rev-parse HEAD)" >> $GITHUB_ENV
-          
+
+      - name: Resolve Go branch to compile
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            GO_BRANCH="${{ inputs.go_branch }}"
+          else
+            GO_BRANCH="${{ github.ref_name }}"
+          fi
+          echo "GO_BRANCH=${GO_BRANCH}" >> $GITHUB_ENV
+          echo "GO_TAG=$(echo "${GO_BRANCH}" | sed 's/^release-branch\.//' | tr '/' '-')" >> $GITHUB_ENV
+
       - name: Login to Github Registry
         uses: docker/login-action@v3 
         with:
@@ -39,8 +57,10 @@ jobs:
             BASE_IMAGE=alpine:3.14
             SHA1VER=${{ env.SHA1VER }}
             VERSION=latest
+            GO_BRANCH=${{ env.GO_BRANCH }}
           tags: |
             ghcr.io/lamassuiot/golang-pqc:latest
+            ghcr.io/lamassuiot/golang-pqc:${{ env.GO_TAG }}
           push: true
 
 
