@@ -1,15 +1,17 @@
 #################################################################################################
 #                                                                                               #
-# Stage 1: bootsrap builder                                                                     #
+# Stage 1: bootstrap builder                                                                     #
 #                                                                                               #
 #################################################################################################
 
 FROM golang:1.26 AS builder
 
+ARG GO_BRANCH=release-branch.go1.27
+
 RUN apt-get update -y && apt-get install -y git
 
 WORKDIR /lamassu-go
-RUN git clone -b release-branch.go1.27 --single-branch --depth 1 https://github.com/lamassuiot/go.git
+RUN git clone -b ${GO_BRANCH} --single-branch --depth 1 https://github.com/lamassuiot/go.git
 
 WORKDIR /lamassu-go/go/src
 RUN ./make.bash
