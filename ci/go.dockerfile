@@ -30,6 +30,8 @@ COPY --from=builder /lamassu-go/go/bin /usr/local/go-pqc/bin
 COPY --from=builder /lamassu-go/go/pkg /usr/local/go-pqc/pkg
 COPY --from=builder /lamassu-go/go/src /usr/local/go-pqc/src
 COPY --from=builder /lamassu-go/go/lib /usr/local/go-pqc/lib
+COPY --from=builder /lamassu-go/go/go.env /usr/local/go-pqc/go.env
+COPY --from=builder /lamassu-go/go/VERSION /usr/local/go-pqc/VERSION
 
 ENV PATH "/usr/local/go-pqc/bin:$PATH"
 ENV GOROOT="/usr/local/go-pqc"
