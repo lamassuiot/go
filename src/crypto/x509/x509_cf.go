@@ -6,9 +6,6 @@ import (
 
 	circlPki "cloudflare/circl/pki"
 	circlSign "cloudflare/circl/sign"
-	"cloudflare/circl/sign/mldsa/mldsa44"
-	"cloudflare/circl/sign/mldsa/mldsa65"
-	"cloudflare/circl/sign/mldsa/mldsa87"
 	"cloudflare/circl/sign/slhdsa"
 )
 
@@ -24,9 +21,6 @@ var circlSchemes = [...]struct {
 	alg    PublicKeyAlgorithm
 	scheme circlSign.Scheme
 }{
-	{MLDSA44, MLDSA, mldsa44.Scheme()},
-	{MLDSA65, MLDSA, mldsa65.Scheme()},
-	{MLDSA87, MLDSA, mldsa87.Scheme()},
 	// SLH-DSA (RFC 9909) — Pure SLH-DSA parameter sets.
 	{PureSLHDSASHA2128s, SLHDSA, slhdsa.SHA2_128s.Scheme()},
 	{PureSLHDSASHA2128f, SLHDSA, slhdsa.SHA2_128f.Scheme()},

@@ -15,8 +15,8 @@
 package x509
 
 import (
-	"bytes"
 	"crypto"
+	"crypto/mldsa"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -24,186 +24,11 @@ import (
 	"encoding/asn1"
 	"errors"
 	"io"
-
-	"cloudflare/circl/sign/mldsa/mldsa44"
-	"cloudflare/circl/sign/mldsa/mldsa65"
-	"cloudflare/circl/sign/mldsa/mldsa87"
 )
 
 // ── domain-separation constant ────────────────────────────────────────────────
 
 const compositeDomainPrefix = "CompositeAlgorithmSignatures2025"
-
-// ── mldsaImpl ─────────────────────────────────────────────────────────────────
-
-// mldsaImpl abstracts over the three ML-DSA parameter sets so that
-// CompositeAlgorithm can hold a single implementation value.
-type mldsaImpl interface {
-	generateKey(rnd io.Reader) (mldsaPK interface{}, mldsaSK interface{}, err error)
-	signTo(sk interface{}, msg, ctx []byte, sig []byte) error
-	verify(pk interface{}, msg, ctx, sig []byte) bool
-	publicKeyFromPrivate(sk interface{}) interface{}
-	publicKeyBytes(pk interface{}) []byte
-	privateKeyBytes(sk interface{}) []byte
-	unmarshalPublicKey(data []byte) (interface{}, error)
-	unmarshalPrivateKey(data []byte) (interface{}, error)
-	publicKeySize() int
-	privateKeySize() int // always 32 (seed size) for wire format
-	signatureSize() int
-}
-
-// mldsaSeedKey44/65/87 bundles a 32-byte seed with its expanded private key so
-// that serialization can return the seed and signing can use the cached key.
-type mldsaSeedKey44 struct {
-	seed [mldsa44.SeedSize]byte
-	sk   *mldsa44.PrivateKey
-}
-type mldsaSeedKey65 struct {
-	seed [mldsa65.SeedSize]byte
-	sk   *mldsa65.PrivateKey
-}
-type mldsaSeedKey87 struct {
-	seed [mldsa87.SeedSize]byte
-	sk   *mldsa87.PrivateKey
-}
-
-// ── mldsa44 adapter ───────────────────────────────────────────────────────────
-
-type compositeImpl44 struct{}
-
-func (compositeImpl44) generateKey(rnd io.Reader) (interface{}, interface{}, error) {
-	var seed [mldsa44.SeedSize]byte
-	if _, err := io.ReadFull(rnd, seed[:]); err != nil {
-		return nil, nil, err
-	}
-	pk, sk := mldsa44.NewKeyFromSeed(&seed)
-	return pk, &mldsaSeedKey44{seed: seed, sk: sk}, nil
-}
-func (compositeImpl44) signTo(sk interface{}, msg, ctx []byte, sig []byte) error {
-	return mldsa44.SignTo(sk.(*mldsaSeedKey44).sk, msg, ctx, false, sig)
-}
-func (compositeImpl44) verify(pk interface{}, msg, ctx, sig []byte) bool {
-	return mldsa44.Verify(pk.(*mldsa44.PublicKey), msg, ctx, sig)
-}
-func (compositeImpl44) publicKeyFromPrivate(sk interface{}) interface{} {
-	return sk.(*mldsaSeedKey44).sk.Public().(*mldsa44.PublicKey)
-}
-func (compositeImpl44) publicKeyBytes(pk interface{}) []byte { return pk.(*mldsa44.PublicKey).Bytes() }
-func (compositeImpl44) privateKeyBytes(sk interface{}) []byte {
-	s := sk.(*mldsaSeedKey44).seed
-	return s[:]
-}
-func (compositeImpl44) unmarshalPublicKey(data []byte) (interface{}, error) {
-	var pk mldsa44.PublicKey
-	if err := pk.UnmarshalBinary(data); err != nil {
-		return nil, err
-	}
-	return &pk, nil
-}
-func (compositeImpl44) unmarshalPrivateKey(data []byte) (interface{}, error) {
-	if len(data) != mldsa44.SeedSize {
-		return nil, errors.New("x509: invalid ML-DSA-44 seed length")
-	}
-	var seed [mldsa44.SeedSize]byte
-	copy(seed[:], data)
-	_, expandedSK := mldsa44.NewKeyFromSeed(&seed)
-	return &mldsaSeedKey44{seed: seed, sk: expandedSK}, nil
-}
-func (compositeImpl44) publicKeySize() int  { return mldsa44.PublicKeySize }
-func (compositeImpl44) privateKeySize() int { return mldsa44.SeedSize }
-func (compositeImpl44) signatureSize() int  { return mldsa44.SignatureSize }
-
-// ── mldsa65 adapter ───────────────────────────────────────────────────────────
-
-type compositeImpl65 struct{}
-
-func (compositeImpl65) generateKey(rnd io.Reader) (interface{}, interface{}, error) {
-	var seed [mldsa65.SeedSize]byte
-	if _, err := io.ReadFull(rnd, seed[:]); err != nil {
-		return nil, nil, err
-	}
-	pk, sk := mldsa65.NewKeyFromSeed(&seed)
-	return pk, &mldsaSeedKey65{seed: seed, sk: sk}, nil
-}
-func (compositeImpl65) signTo(sk interface{}, msg, ctx []byte, sig []byte) error {
-	return mldsa65.SignTo(sk.(*mldsaSeedKey65).sk, msg, ctx, false, sig)
-}
-func (compositeImpl65) verify(pk interface{}, msg, ctx, sig []byte) bool {
-	return mldsa65.Verify(pk.(*mldsa65.PublicKey), msg, ctx, sig)
-}
-func (compositeImpl65) publicKeyFromPrivate(sk interface{}) interface{} {
-	return sk.(*mldsaSeedKey65).sk.Public().(*mldsa65.PublicKey)
-}
-func (compositeImpl65) publicKeyBytes(pk interface{}) []byte { return pk.(*mldsa65.PublicKey).Bytes() }
-func (compositeImpl65) privateKeyBytes(sk interface{}) []byte {
-	s := sk.(*mldsaSeedKey65).seed
-	return s[:]
-}
-func (compositeImpl65) unmarshalPublicKey(data []byte) (interface{}, error) {
-	var pk mldsa65.PublicKey
-	if err := pk.UnmarshalBinary(data); err != nil {
-		return nil, err
-	}
-	return &pk, nil
-}
-func (compositeImpl65) unmarshalPrivateKey(data []byte) (interface{}, error) {
-	if len(data) != mldsa65.SeedSize {
-		return nil, errors.New("x509: invalid ML-DSA-65 seed length")
-	}
-	var seed [mldsa65.SeedSize]byte
-	copy(seed[:], data)
-	_, expandedSK := mldsa65.NewKeyFromSeed(&seed)
-	return &mldsaSeedKey65{seed: seed, sk: expandedSK}, nil
-}
-func (compositeImpl65) publicKeySize() int  { return mldsa65.PublicKeySize }
-func (compositeImpl65) privateKeySize() int { return mldsa65.SeedSize }
-func (compositeImpl65) signatureSize() int  { return mldsa65.SignatureSize }
-
-// ── mldsa87 adapter ───────────────────────────────────────────────────────────
-
-type compositeImpl87 struct{}
-
-func (compositeImpl87) generateKey(rnd io.Reader) (interface{}, interface{}, error) {
-	var seed [mldsa87.SeedSize]byte
-	if _, err := io.ReadFull(rnd, seed[:]); err != nil {
-		return nil, nil, err
-	}
-	pk, sk := mldsa87.NewKeyFromSeed(&seed)
-	return pk, &mldsaSeedKey87{seed: seed, sk: sk}, nil
-}
-func (compositeImpl87) signTo(sk interface{}, msg, ctx []byte, sig []byte) error {
-	return mldsa87.SignTo(sk.(*mldsaSeedKey87).sk, msg, ctx, false, sig)
-}
-func (compositeImpl87) verify(pk interface{}, msg, ctx, sig []byte) bool {
-	return mldsa87.Verify(pk.(*mldsa87.PublicKey), msg, ctx, sig)
-}
-func (compositeImpl87) publicKeyFromPrivate(sk interface{}) interface{} {
-	return sk.(*mldsaSeedKey87).sk.Public().(*mldsa87.PublicKey)
-}
-func (compositeImpl87) publicKeyBytes(pk interface{}) []byte { return pk.(*mldsa87.PublicKey).Bytes() }
-func (compositeImpl87) privateKeyBytes(sk interface{}) []byte {
-	s := sk.(*mldsaSeedKey87).seed
-	return s[:]
-}
-func (compositeImpl87) unmarshalPublicKey(data []byte) (interface{}, error) {
-	var pk mldsa87.PublicKey
-	if err := pk.UnmarshalBinary(data); err != nil {
-		return nil, err
-	}
-	return &pk, nil
-}
-func (compositeImpl87) unmarshalPrivateKey(data []byte) (interface{}, error) {
-	if len(data) != mldsa87.SeedSize {
-		return nil, errors.New("x509: invalid ML-DSA-87 seed length")
-	}
-	var seed [mldsa87.SeedSize]byte
-	copy(seed[:], data)
-	_, expandedSK := mldsa87.NewKeyFromSeed(&seed)
-	return &mldsaSeedKey87{seed: seed, sk: expandedSK}, nil
-}
-func (compositeImpl87) publicKeySize() int  { return mldsa87.PublicKeySize }
-func (compositeImpl87) privateKeySize() int { return mldsa87.SeedSize }
-func (compositeImpl87) signatureSize() int  { return mldsa87.SignatureSize }
 
 // ── CompositeAlgorithm ────────────────────────────────────────────────────────
 
@@ -217,7 +42,7 @@ type CompositeAlgorithm struct {
 	// OID is the ASN.1 object identifier assigned to this algorithm.
 	OID asn1.ObjectIdentifier
 
-	impl    mldsaImpl
+	params  mldsa.Parameters
 	rsaBits int
 	hash    crypto.Hash // PH hash applied to msg in M' (SHA-256 or SHA-512)
 	rsaHash crypto.Hash // hash used for RSA signing/verification of M'
@@ -231,7 +56,7 @@ var (
 		Name:    "MLDSA44-RSA2048-PSS-SHA256",
 		Label:   "COMPSIG-MLDSA44-RSA2048-PSS-SHA256",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 37},
-		impl:    compositeImpl44{},
+		params:  mldsa.MLDSA44(),
 		rsaBits: 2048,
 		hash:    crypto.SHA256,
 		rsaHash: crypto.SHA256,
@@ -242,7 +67,7 @@ var (
 		Name:    "MLDSA44-RSA2048-PKCS15-SHA256",
 		Label:   "COMPSIG-MLDSA44-RSA2048-PKCS15-SHA256",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 38},
-		impl:    compositeImpl44{},
+		params:  mldsa.MLDSA44(),
 		rsaBits: 2048,
 		hash:    crypto.SHA256,
 		rsaHash: crypto.SHA256,
@@ -253,7 +78,7 @@ var (
 		Name:    "MLDSA65-RSA3072-PSS-SHA512",
 		Label:   "COMPSIG-MLDSA65-RSA3072-PSS-SHA512",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 41},
-		impl:    compositeImpl65{},
+		params:  mldsa.MLDSA65(),
 		rsaBits: 3072,
 		hash:    crypto.SHA512,
 		rsaHash: crypto.SHA256,
@@ -264,7 +89,7 @@ var (
 		Name:    "MLDSA65-RSA3072-PKCS15-SHA512",
 		Label:   "COMPSIG-MLDSA65-RSA3072-PKCS15-SHA512",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 42},
-		impl:    compositeImpl65{},
+		params:  mldsa.MLDSA65(),
 		rsaBits: 3072,
 		hash:    crypto.SHA512,
 		rsaHash: crypto.SHA256,
@@ -275,7 +100,7 @@ var (
 		Name:    "MLDSA65-RSA4096-PSS-SHA512",
 		Label:   "COMPSIG-MLDSA65-RSA4096-PSS-SHA512",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 43},
-		impl:    compositeImpl65{},
+		params:  mldsa.MLDSA65(),
 		rsaBits: 4096,
 		hash:    crypto.SHA512,
 		rsaHash: crypto.SHA384,
@@ -286,7 +111,7 @@ var (
 		Name:    "MLDSA65-RSA4096-PKCS15-SHA512",
 		Label:   "COMPSIG-MLDSA65-RSA4096-PKCS15-SHA512",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 44},
-		impl:    compositeImpl65{},
+		params:  mldsa.MLDSA65(),
 		rsaBits: 4096,
 		hash:    crypto.SHA512,
 		rsaHash: crypto.SHA384,
@@ -297,7 +122,7 @@ var (
 		Name:    "MLDSA87-RSA3072-PSS-SHA512",
 		Label:   "COMPSIG-MLDSA87-RSA3072-PSS-SHA512",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 52},
-		impl:    compositeImpl87{},
+		params:  mldsa.MLDSA87(),
 		rsaBits: 3072,
 		hash:    crypto.SHA512,
 		rsaHash: crypto.SHA256,
@@ -308,7 +133,7 @@ var (
 		Name:    "MLDSA87-RSA4096-PSS-SHA512",
 		Label:   "COMPSIG-MLDSA87-RSA4096-PSS-SHA512",
 		OID:     asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 53},
-		impl:    compositeImpl87{},
+		params:  mldsa.MLDSA87(),
 		rsaBits: 4096,
 		hash:    crypto.SHA512,
 		rsaHash: crypto.SHA384,
@@ -380,7 +205,7 @@ func compositeAlgorithmBySigAlgo(algo SignatureAlgorithm) *CompositeAlgorithm {
 // CompositePublicKey holds the ML-DSA and RSA public key components for a
 // composite algorithm.
 type CompositePublicKey struct {
-	mldsaPK interface{}
+	mldsaPK *mldsa.PublicKey
 	rsaPK   *rsa.PublicKey
 	alg     *CompositeAlgorithm
 }
@@ -395,14 +220,13 @@ func (pk *CompositePublicKey) Equal(x crypto.PublicKey) bool {
 	if !ok || pk.alg != other.alg {
 		return false
 	}
-	return bytes.Equal(pk.alg.impl.publicKeyBytes(pk.mldsaPK), pk.alg.impl.publicKeyBytes(other.mldsaPK)) &&
-		pk.rsaPK.Equal(other.rsaPK)
+	return pk.mldsaPK.Equal(other.mldsaPK) && pk.rsaPK.Equal(other.rsaPK)
 }
 
 // CompositePrivateKey holds the ML-DSA and RSA private key components for a
 // composite algorithm.
 type CompositePrivateKey struct {
-	mldsaSK interface{}
+	mldsaSK *mldsa.PrivateKey
 	rsaSK   *rsa.PrivateKey
 	alg     *CompositeAlgorithm
 }
@@ -415,7 +239,7 @@ func (sk *CompositePrivateKey) Algorithm() *CompositeAlgorithm { return sk.alg }
 // recover the concrete type.
 func (sk *CompositePrivateKey) Public() crypto.PublicKey {
 	return &CompositePublicKey{
-		mldsaPK: sk.alg.impl.publicKeyFromPrivate(sk.mldsaSK),
+		mldsaPK: sk.mldsaSK.PublicKey(),
 		rsaPK:   &sk.rsaSK.PublicKey,
 		alg:     sk.alg,
 	}
@@ -462,7 +286,11 @@ func (a *CompositeAlgorithm) GenerateCompositeKey(rnd io.Reader) (*CompositePubl
 	if rnd == nil {
 		rnd = cryptorand.Reader
 	}
-	mldsaPK, mldsaSK, err := a.impl.generateKey(rnd)
+	var seed [mldsa.PrivateKeySize]byte
+	if _, err := io.ReadFull(rnd, seed[:]); err != nil {
+		return nil, nil, err
+	}
+	mldsaSK, err := mldsa.NewPrivateKey(a.params, seed[:])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -470,7 +298,7 @@ func (a *CompositeAlgorithm) GenerateCompositeKey(rnd io.Reader) (*CompositePubl
 	if err != nil {
 		return nil, nil, err
 	}
-	pk := &CompositePublicKey{mldsaPK: mldsaPK, rsaPK: &rsaSK.PublicKey, alg: a}
+	pk := &CompositePublicKey{mldsaPK: mldsaSK.PublicKey(), rsaPK: &rsaSK.PublicKey, alg: a}
 	sk := &CompositePrivateKey{mldsaSK: mldsaSK, rsaSK: rsaSK, alg: a}
 	return pk, sk, nil
 }
@@ -531,14 +359,13 @@ func (a *CompositeAlgorithm) CompositeSign(rnd io.Reader, sk *CompositePrivateKe
 
 	mPrime := a.compositeBuildMPrime(msg, ctx)
 
-	mldsaSig := make([]byte, a.impl.signatureSize())
-	if err := a.impl.signTo(sk.mldsaSK, mPrime, []byte(a.Label), mldsaSig); err != nil {
+	mldsaSig, err := sk.mldsaSK.Sign(nil, mPrime, &mldsa.Options{Context: a.Label})
+	if err != nil {
 		return nil, err
 	}
 
 	digest := a.compositeHashMPrime(mPrime)
 	var rsaSig []byte
-	var err error
 	if a.pss {
 		opts := &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash}
 		rsaSig, err = rsa.SignPSS(rnd, sk.rsaSK, a.rsaHash, digest, opts)
@@ -560,7 +387,7 @@ func (a *CompositeAlgorithm) CompositeVerify(pk *CompositePublicKey, msg, ctx, s
 	if len(ctx) > 255 {
 		return false
 	}
-	mldsaSigSize := a.impl.signatureSize()
+	mldsaSigSize := a.params.SignatureSize()
 	if len(sig) <= mldsaSigSize {
 		return false
 	}
@@ -568,7 +395,7 @@ func (a *CompositeAlgorithm) CompositeVerify(pk *CompositePublicKey, msg, ctx, s
 	rsaSig := sig[mldsaSigSize:]
 
 	mPrime := a.compositeBuildMPrime(msg, ctx)
-	if !a.impl.verify(pk.mldsaPK, mPrime, []byte(a.Label), mldsaSig) {
+	if mldsa.Verify(pk.mldsaPK, mPrime, mldsaSig, &mldsa.Options{Context: a.Label}) != nil {
 		return false
 	}
 
@@ -596,18 +423,18 @@ func (a *CompositeAlgorithm) marshalCompositePublicKey(pk *CompositePublicKey) (
 	if pk.alg != a {
 		return nil, errors.New("x509: composite key belongs to a different algorithm")
 	}
-	mldsaBytes := a.impl.publicKeyBytes(pk.mldsaPK)
+	mldsaBytes := pk.mldsaPK.Bytes()
 	rsaDER := MarshalPKCS1PublicKey(pk.rsaPK)
 	return append(mldsaBytes, rsaDER...), nil
 }
 
 // parseCompositePublicKey deserializes a raw composite public key.
 func (a *CompositeAlgorithm) parseCompositePublicKey(data []byte) (*CompositePublicKey, error) {
-	mldsaSize := a.impl.publicKeySize()
+	mldsaSize := a.params.PublicKeySize()
 	if len(data) <= mldsaSize {
 		return nil, errors.New("x509: composite public key data too short")
 	}
-	mldsaPK, err := a.impl.unmarshalPublicKey(data[:mldsaSize])
+	mldsaPK, err := mldsa.NewPublicKey(a.params, data[:mldsaSize])
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +450,7 @@ func (a *CompositeAlgorithm) marshalCompositePrivateKey(sk *CompositePrivateKey)
 	if sk.alg != a {
 		return nil, errors.New("x509: composite key belongs to a different algorithm")
 	}
-	mldsaBytes := a.impl.privateKeyBytes(sk.mldsaSK)
+	mldsaBytes := sk.mldsaSK.Bytes()
 	rsaDER := MarshalPKCS1PrivateKey(sk.rsaSK)
 	return append(mldsaBytes, rsaDER...), nil
 }
@@ -637,11 +464,11 @@ func (a *CompositeAlgorithm) ParseCompositePublicKeyRaw(data []byte) (*Composite
 
 // parseCompositePrivateKey deserializes a raw composite private key.
 func (a *CompositeAlgorithm) parseCompositePrivateKey(data []byte) (*CompositePrivateKey, error) {
-	mldsaSize := a.impl.privateKeySize()
+	mldsaSize := mldsa.PrivateKeySize
 	if len(data) <= mldsaSize {
 		return nil, errors.New("x509: composite private key data too short")
 	}
-	mldsaSK, err := a.impl.unmarshalPrivateKey(data[:mldsaSize])
+	mldsaSK, err := mldsa.NewPrivateKey(a.params, data[:mldsaSize])
 	if err != nil {
 		return nil, err
 	}
