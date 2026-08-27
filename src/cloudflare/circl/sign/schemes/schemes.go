@@ -12,16 +12,10 @@ import (
 	"strings"
 
 	"cloudflare/circl/sign"
-	"cloudflare/circl/sign/mldsa/mldsa44"
-	"cloudflare/circl/sign/mldsa/mldsa65"
-	"cloudflare/circl/sign/mldsa/mldsa87"
 	"cloudflare/circl/sign/slhdsa"
 )
 
 var allSchemes = [...]sign.Scheme{
-	mldsa44.Scheme(),
-	mldsa65.Scheme(),
-	mldsa87.Scheme(),
 	slhdsa.SHA2_128s.Scheme(),
 	slhdsa.SHAKE_128s.Scheme(),
 	slhdsa.SHA2_128f.Scheme(),
