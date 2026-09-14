@@ -540,3 +540,22 @@ pkg crypto/x509, var MLDSA65_RSA4096_PKCS15_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA65_RSA4096_PSS_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA87_RSA3072_PSS_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA87_RSA4096_PSS_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, func NewMLDSAPrivateKey(io.Reader, mldsa.Parameters, string) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewMLDSAPrivateKeyFromBytes(mldsa.Parameters, string, []uint8) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewMLDSAPublicKeyFromBytes(mldsa.Parameters, string, []uint8) (InnerPublicKey, error) #000000
+pkg crypto/x509, func NewRSAPrivateKey(io.Reader, int, crypto.Hash, bool) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewRSAPrivateKeyFromBytes(int, crypto.Hash, bool, []uint8) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewRSAPublicKeyFromBytes(int, crypto.Hash, bool, []uint8) (InnerPublicKey, error) #000000
+pkg crypto/x509, type InnerPrivateKey interface { Bytes, GenerateKey, Public, Sign, Size, Unmarshall } #000000
+pkg crypto/x509, type InnerPrivateKey interface, Bytes() []uint8 #000000
+pkg crypto/x509, type InnerPrivateKey interface, GenerateKey(io.Reader) (InnerPrivateKey, error) #000000
+pkg crypto/x509, type InnerPrivateKey interface, Public() InnerPublicKey #000000
+pkg crypto/x509, type InnerPrivateKey interface, Sign(io.Reader, []uint8) ([]uint8, error) #000000
+pkg crypto/x509, type InnerPrivateKey interface, Size() int #000000
+pkg crypto/x509, type InnerPrivateKey interface, Unmarshall([]uint8) (InnerPrivateKey, error) #000000
+pkg crypto/x509, type InnerPublicKey interface { Bytes, SignatureSize, Size, Unmarshall, Verify } #000000
+pkg crypto/x509, type InnerPublicKey interface, Bytes() []uint8 #000000
+pkg crypto/x509, type InnerPublicKey interface, SignatureSize() int #000000
+pkg crypto/x509, type InnerPublicKey interface, Size() int #000000
+pkg crypto/x509, type InnerPublicKey interface, Unmarshall([]uint8) (InnerPublicKey, error) #000000
+pkg crypto/x509, type InnerPublicKey interface, Verify([]uint8, []uint8) bool  #000000

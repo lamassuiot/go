@@ -240,13 +240,9 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 
 	case *CompositePrivateKey:
 		privKey.Algo = pkix.AlgorithmIdentifier{
-			Algorithm: k.alg.OID,
+			Algorithm: k.oid,
 		}
-		var err error
-		privKey.PrivateKey, err = k.alg.marshalCompositePrivateKey(k)
-		if err != nil {
-			return nil, fmt.Errorf("x509: failed to marshal composite private key: %v", err)
-		}
+		privKey.PrivateKey = k.marshall()
 
 	case circlSign.PrivateKey:
 		scheme, ok := k.Scheme().(circlPki.CertificateScheme)
