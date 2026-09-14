@@ -153,12 +153,8 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 		publicKeyBytes, _ = pub.MarshalBinary()
 		publicKeyAlgorithm.Algorithm = scheme.Oid()
 	case *CompositePublicKey:
-		publicKeyAlgorithm.Algorithm = pub.alg.OID
-		var err error
-		publicKeyBytes, err = pub.alg.marshalCompositePublicKey(pub)
-		if err != nil {
-			return nil, pkix.AlgorithmIdentifier{}, err
-		}
+		publicKeyAlgorithm.Algorithm = pub.oid
+		publicKeyBytes = pub.marshall()
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
@@ -1779,7 +1775,7 @@ func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm)
 
 	case *CompositePublicKey:
 		pubType = CompositeMLDSARSA
-		defaultAlgo = pub.alg.sigAlgo
+		defaultAlgo = compositeAlgorithmByOID(pub.oid).sigAlgo
 
 	default:
 		return 0, ai, errors.New("x509: only RSA, ECDSA, ML-DSA and Ed25519 keys supported")
