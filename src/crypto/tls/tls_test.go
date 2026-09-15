@@ -16,6 +16,7 @@ import (
 	"crypto/internal/cryptotest"
 	"crypto/mldsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -189,6 +190,92 @@ Zm9vZm9vZm9v
 	}
 	if _, err := X509KeyPair([]byte(ecdsaCertPEM), []byte(rsaKeyPEM)); err == nil {
 		t.Error("Load of ECDSA certificate succeeded with RSA private key")
+	}
+}
+
+func TestParsePrivateKeyComposite(t *testing.T) {
+	for _, alg := range x509.CompositeAlgorithms {
+		t.Run(alg.Name, func(t *testing.T) {
+			pub, priv, err := alg.GenerateCompositeKey(rand.Reader)
+			if err != nil {
+				t.Fatalf("GenerateCompositeKey: %v", err)
+			}
+			der, err := x509.MarshalPKCS8PrivateKey(priv)
+			if err != nil {
+				t.Fatalf("MarshalPKCS8PrivateKey: %v", err)
+			}
+
+			key, err := parsePrivateKey(der)
+			if err != nil {
+				t.Fatalf("parsePrivateKey: %v", err)
+			}
+
+			parsed, ok := key.(*x509.CompositePrivateKey)
+			if !ok {
+				t.Fatalf("parsePrivateKey returned %T, want *x509.CompositePrivateKey", key)
+			}
+			if parsed.Algorithm() != alg {
+				t.Errorf("parsed key algorithm = %v, want %v", parsed.Algorithm(), alg)
+			}
+			if !parsed.Public().(*x509.CompositePublicKey).Equal(pub) {
+				t.Error("parsed private key's public half does not match the original public key")
+			}
+		})
+	}
+}
+
+func TestX509KeyPairComposite(t *testing.T) {
+	for _, alg := range x509.CompositeAlgorithms {
+		t.Run(alg.Name, func(t *testing.T) {
+			pub, priv, err := alg.GenerateCompositeKey(rand.Reader)
+			if err != nil {
+				t.Fatalf("GenerateCompositeKey: %v", err)
+			}
+
+			template := &x509.Certificate{
+				SerialNumber: big.NewInt(1),
+				Subject: pkix.Name{
+					CommonName: "composite-test",
+				},
+				NotBefore:             time.Now().Add(-time.Hour),
+				NotAfter:              time.Now().Add(24 * time.Hour),
+				KeyUsage:              x509.KeyUsageDigitalSignature,
+				BasicConstraintsValid: true,
+			}
+			certDER, err := x509.CreateCertificate(rand.Reader, template, template, pub, priv)
+			if err != nil {
+				t.Fatalf("CreateCertificate: %v", err)
+			}
+			certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+			keyDER, err := x509.MarshalPKCS8PrivateKey(priv)
+			if err != nil {
+				t.Fatalf("MarshalPKCS8PrivateKey: %v", err)
+			}
+			keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+
+			cert, err := X509KeyPair(certPEM, keyPEM)
+			if err != nil {
+				t.Fatalf("X509KeyPair: %v", err)
+			}
+			if _, ok := cert.PrivateKey.(*x509.CompositePrivateKey); !ok {
+				t.Fatalf("cert.PrivateKey is %T, want *x509.CompositePrivateKey", cert.PrivateKey)
+			}
+
+			// A mismatched RSA key should be rejected.
+			rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+			if err != nil {
+				t.Fatalf("rsa.GenerateKey: %v", err)
+			}
+			mismatchedKeyDER, err := x509.MarshalPKCS8PrivateKey(rsaKey)
+			if err != nil {
+				t.Fatalf("MarshalPKCS8PrivateKey: %v", err)
+			}
+			mismatchedKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: mismatchedKeyDER})
+			if _, err := X509KeyPair(certPEM, mismatchedKeyPEM); err == nil {
+				t.Error("X509KeyPair succeeded with mismatched RSA private key")
+			}
+		})
 	}
 }
 

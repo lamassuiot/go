@@ -348,6 +348,14 @@ func X509KeyPair(certPEMBlock, keyPEMBlock []byte) (Certificate, error) {
 		if !priv.PublicKey().Equal(pub) {
 			return fail(errors.New("tls: private key does not match public key"))
 		}
+	case *x509.CompositePublicKey:
+		priv, ok := cert.PrivateKey.(*x509.CompositePrivateKey)
+		if !ok {
+			return fail(errors.New("tls: private key type does not match public key type"))
+		}
+		if !priv.Public().(*x509.CompositePublicKey).Equal(pub) {
+			return fail(errors.New("tls: private key does not match public key"))
+		}
 	default:
 		return fail(errors.New("tls: unknown public key algorithm"))
 	}
@@ -371,7 +379,7 @@ func parsePrivateKey(der []byte) (crypto.PrivateKey, error) {
 		return nil, fmt.Errorf("tls: failed to parse private key: %w", pkcs8Err)
 	}
 	switch key := key.(type) {
-	case *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey, *mldsa.PrivateKey:
+	case *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey, *mldsa.PrivateKey, *x509.CompositePrivateKey:
 		return key, nil
 	default:
 		return nil, errors.New("tls: found unknown private key type in PKCS#8 wrapping")
