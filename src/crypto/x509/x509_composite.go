@@ -1,7 +1,7 @@
 // Package x509 — composite signature algorithms
 //
 // Implements the composite algorithms from draft-ietf-lamps-pq-composite-sigs
-// (currently ML-DSA+RSA). CompositeAlgorithm only holds an algorithm's
+// (ML-DSA+RSA, ML-DSA+ECDSA and ML-DSA+Ed25519). CompositeAlgorithm only holds an algorithm's
 // identity and its buildMPrime closure; the concrete inner algorithms are
 // fixed once, in the prototype keys built by newCompositeAlgorithm.
 //
@@ -13,6 +13,7 @@ package x509
 
 import (
 	"crypto"
+	"crypto/elliptic"
 	"crypto/mldsa"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
@@ -38,7 +39,8 @@ type CompositeAlgorithm struct {
 	privateKey *CompositePrivateKey
 	publicKey  *CompositePublicKey
 
-	sigAlgo SignatureAlgorithm
+	sigAlgo    SignatureAlgorithm
+	pubKeyAlgo PublicKeyAlgorithm
 }
 
 // newBuildMPrime returns the buildMPrime closure for an algorithm using
@@ -98,7 +100,7 @@ func newBuildMPrime(isMLDSA bool, hash crypto.Hash, label string) func(msg, ctx 
 // reflect privProto1's algorithm. Adding a new algorithm never requires
 // changing anything else in this file.
 func newCompositeAlgorithm(
-	name, label string, oid asn1.ObjectIdentifier, sigAlgo SignatureAlgorithm, isMLDSA bool, phHash crypto.Hash,
+	name, label string, oid asn1.ObjectIdentifier, sigAlgo SignatureAlgorithm, pubKeyAlgo PublicKeyAlgorithm, isMLDSA bool, phHash crypto.Hash,
 	privProto1, privProto2 InnerPrivateKey, pubProto1, pubProto2 InnerPublicKey,
 ) *CompositeAlgorithm {
 	a := &CompositeAlgorithm{
@@ -107,6 +109,7 @@ func newCompositeAlgorithm(
 		OID:         oid,
 		buildMPrime: newBuildMPrime(isMLDSA, phHash, label),
 		sigAlgo:     sigAlgo,
+		pubKeyAlgo:  pubKeyAlgo,
 	}
 	a.privateKey = &CompositePrivateKey{innerSk1: privProto1, innerSk2: privProto2, oid: oid}
 	a.publicKey = &CompositePublicKey{innerPk1: pubProto1, innerPk2: pubProto2, oid: oid}
@@ -117,7 +120,7 @@ func newCompositeAlgorithm(
 var (
 	MLDSA44_RSA2048_PSS_SHA256 = newCompositeAlgorithm(
 		"MLDSA44-RSA2048-PSS-SHA256", "COMPSIG-MLDSA44-RSA2048-PSS-SHA256",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 37}, CompositeMLDSA44RSA2048PSSHA256, true, crypto.SHA256,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 37}, CompositeMLDSA44RSA2048PSSHA256, CompositeMLDSARSA, true, crypto.SHA256,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-RSA2048-PSS-SHA256", nil),
 		newRSAInnerPrivateKey(2048, crypto.SHA256, true, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-RSA2048-PSS-SHA256", nil),
@@ -125,7 +128,7 @@ var (
 	)
 	MLDSA44_RSA2048_PKCS15_SHA256 = newCompositeAlgorithm(
 		"MLDSA44-RSA2048-PKCS15-SHA256", "COMPSIG-MLDSA44-RSA2048-PKCS15-SHA256",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 38}, CompositeMLDSA44RSA2048PKCS15SHA256, true, crypto.SHA256,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 38}, CompositeMLDSA44RSA2048PKCS15SHA256, CompositeMLDSARSA, true, crypto.SHA256,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-RSA2048-PKCS15-SHA256", nil),
 		newRSAInnerPrivateKey(2048, crypto.SHA256, false, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-RSA2048-PKCS15-SHA256", nil),
@@ -133,7 +136,7 @@ var (
 	)
 	MLDSA65_RSA3072_PSS_SHA512 = newCompositeAlgorithm(
 		"MLDSA65-RSA3072-PSS-SHA512", "COMPSIG-MLDSA65-RSA3072-PSS-SHA512",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 41}, CompositeMLDSA65RSA3072PSSHA512, true, crypto.SHA512,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 41}, CompositeMLDSA65RSA3072PSSHA512, CompositeMLDSARSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA3072-PSS-SHA512", nil),
 		newRSAInnerPrivateKey(3072, crypto.SHA256, true, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA3072-PSS-SHA512", nil),
@@ -141,7 +144,7 @@ var (
 	)
 	MLDSA65_RSA3072_PKCS15_SHA512 = newCompositeAlgorithm(
 		"MLDSA65-RSA3072-PKCS15-SHA512", "COMPSIG-MLDSA65-RSA3072-PKCS15-SHA512",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 42}, CompositeMLDSA65RSA3072PKCS15SHA512, true, crypto.SHA512,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 42}, CompositeMLDSA65RSA3072PKCS15SHA512, CompositeMLDSARSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA3072-PKCS15-SHA512", nil),
 		newRSAInnerPrivateKey(3072, crypto.SHA256, false, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA3072-PKCS15-SHA512", nil),
@@ -149,7 +152,7 @@ var (
 	)
 	MLDSA65_RSA4096_PSS_SHA512 = newCompositeAlgorithm(
 		"MLDSA65-RSA4096-PSS-SHA512", "COMPSIG-MLDSA65-RSA4096-PSS-SHA512",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 43}, CompositeMLDSA65RSA4096PSSHA512, true, crypto.SHA512,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 43}, CompositeMLDSA65RSA4096PSSHA512, CompositeMLDSARSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA4096-PSS-SHA512", nil),
 		newRSAInnerPrivateKey(4096, crypto.SHA384, true, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA4096-PSS-SHA512", nil),
@@ -157,7 +160,7 @@ var (
 	)
 	MLDSA65_RSA4096_PKCS15_SHA512 = newCompositeAlgorithm(
 		"MLDSA65-RSA4096-PKCS15-SHA512", "COMPSIG-MLDSA65-RSA4096-PKCS15-SHA512",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 44}, CompositeMLDSA65RSA4096PKCS15SHA512, true, crypto.SHA512,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 44}, CompositeMLDSA65RSA4096PKCS15SHA512, CompositeMLDSARSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA4096-PKCS15-SHA512", nil),
 		newRSAInnerPrivateKey(4096, crypto.SHA384, false, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-RSA4096-PKCS15-SHA512", nil),
@@ -165,7 +168,7 @@ var (
 	)
 	MLDSA87_RSA3072_PSS_SHA512 = newCompositeAlgorithm(
 		"MLDSA87-RSA3072-PSS-SHA512", "COMPSIG-MLDSA87-RSA3072-PSS-SHA512",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 52}, CompositeMLDSA87RSA3072PSSHA512, true, crypto.SHA512,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 52}, CompositeMLDSA87RSA3072PSSHA512, CompositeMLDSARSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-RSA3072-PSS-SHA512", nil),
 		newRSAInnerPrivateKey(3072, crypto.SHA256, true, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-RSA3072-PSS-SHA512", nil),
@@ -173,11 +176,77 @@ var (
 	)
 	MLDSA87_RSA4096_PSS_SHA512 = newCompositeAlgorithm(
 		"MLDSA87-RSA4096-PSS-SHA512", "COMPSIG-MLDSA87-RSA4096-PSS-SHA512",
-		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 53}, CompositeMLDSA87RSA4096PSSHA512, true, crypto.SHA512,
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 53}, CompositeMLDSA87RSA4096PSSHA512, CompositeMLDSARSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-RSA4096-PSS-SHA512", nil),
 		newRSAInnerPrivateKey(4096, crypto.SHA384, true, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-RSA4096-PSS-SHA512", nil),
 		newRSAInnerPublicKey(4096, crypto.SHA384, true, nil),
+	)
+
+	// Composite ML-DSA+ECDSA algorithms (draft-ietf-lamps-pq-composite-sigs-19,
+	// Section 6 / Table 1). Only the NIST-curve combinations are supported:
+	// the brainpool-curve entries (id-MLDSA65-ECDSA-brainpoolP256r1-SHA512,
+	// id-MLDSA87-ECDSA-brainpoolP384r1-SHA512) have no Go standard library
+	// curve implementation and are intentionally omitted.
+	MLDSA44_ECDSA_P256_SHA256 = newCompositeAlgorithm(
+		"MLDSA44-ECDSA-P256-SHA256", "COMPSIG-MLDSA44-ECDSA-P256-SHA256",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 40}, CompositeMLDSA44ECDSAP256SHA256, CompositeMLDSAECDSA, true, crypto.SHA256,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-ECDSA-P256-SHA256", nil),
+		newECDSAInnerPrivateKey(elliptic.P256(), crypto.SHA256, nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-ECDSA-P256-SHA256", nil),
+		newECDSAInnerPublicKey(elliptic.P256(), crypto.SHA256, nil),
+	)
+	MLDSA65_ECDSA_P256_SHA512 = newCompositeAlgorithm(
+		"MLDSA65-ECDSA-P256-SHA512", "COMPSIG-MLDSA65-ECDSA-P256-SHA512",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 45}, CompositeMLDSA65ECDSAP256SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P256-SHA512", nil),
+		newECDSAInnerPrivateKey(elliptic.P256(), crypto.SHA512, nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P256-SHA512", nil),
+		newECDSAInnerPublicKey(elliptic.P256(), crypto.SHA512, nil),
+	)
+	MLDSA65_ECDSA_P384_SHA512 = newCompositeAlgorithm(
+		"MLDSA65-ECDSA-P384-SHA512", "COMPSIG-MLDSA65-ECDSA-P384-SHA512",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 46}, CompositeMLDSA65ECDSAP384SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P384-SHA512", nil),
+		newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA512, nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P384-SHA512", nil),
+		newECDSAInnerPublicKey(elliptic.P384(), crypto.SHA512, nil),
+	)
+	MLDSA87_ECDSA_P384_SHA512 = newCompositeAlgorithm(
+		"MLDSA87-ECDSA-P384-SHA512", "COMPSIG-MLDSA87-ECDSA-P384-SHA512",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 49}, CompositeMLDSA87ECDSAP384SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-ECDSA-P384-SHA512", nil),
+		newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA512, nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-ECDSA-P384-SHA512", nil),
+		newECDSAInnerPublicKey(elliptic.P384(), crypto.SHA512, nil),
+	)
+	MLDSA87_ECDSA_P521_SHA512 = newCompositeAlgorithm(
+		"MLDSA87-ECDSA-P521-SHA512", "COMPSIG-MLDSA87-ECDSA-P521-SHA512",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 54}, CompositeMLDSA87ECDSAP521SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-ECDSA-P521-SHA512", nil),
+		newECDSAInnerPrivateKey(elliptic.P521(), crypto.SHA512, nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-ECDSA-P521-SHA512", nil),
+		newECDSAInnerPublicKey(elliptic.P521(), crypto.SHA512, nil),
+	)
+
+	// Composite ML-DSA+Ed25519 algorithms (draft-ietf-lamps-pq-composite-sigs-19,
+	// Section 6 / Table 1). The draft defines no ML-DSA87+Ed25519 combination
+	// (ML-DSA-87 pairs with Ed448 instead, which isn't implemented here).
+	MLDSA44_Ed25519_SHA512 = newCompositeAlgorithm(
+		"MLDSA44-Ed25519-SHA512", "COMPSIG-MLDSA44-Ed25519-SHA512",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 39}, CompositeMLDSA44Ed25519SHA512, CompositeMLDSAEd25519, true, crypto.SHA512,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-Ed25519-SHA512", nil),
+		newEd25519InnerPrivateKey(nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA44(), "COMPSIG-MLDSA44-Ed25519-SHA512", nil),
+		newEd25519InnerPublicKey(nil),
+	)
+	MLDSA65_Ed25519_SHA512 = newCompositeAlgorithm(
+		"MLDSA65-Ed25519-SHA512", "COMPSIG-MLDSA65-Ed25519-SHA512",
+		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 48}, CompositeMLDSA65Ed25519SHA512, CompositeMLDSAEd25519, true, crypto.SHA512,
+		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-Ed25519-SHA512", nil),
+		newEd25519InnerPrivateKey(nil),
+		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-Ed25519-SHA512", nil),
+		newEd25519InnerPublicKey(nil),
 	)
 
 	// CompositeAlgorithms is the ordered list of all supported composite
@@ -191,6 +260,13 @@ var (
 		MLDSA65_RSA4096_PKCS15_SHA512,
 		MLDSA87_RSA3072_PSS_SHA512,
 		MLDSA87_RSA4096_PSS_SHA512,
+		MLDSA44_ECDSA_P256_SHA256,
+		MLDSA65_ECDSA_P256_SHA512,
+		MLDSA65_ECDSA_P384_SHA512,
+		MLDSA87_ECDSA_P384_SHA512,
+		MLDSA87_ECDSA_P521_SHA512,
+		MLDSA44_Ed25519_SHA512,
+		MLDSA65_Ed25519_SHA512,
 	}
 )
 
@@ -220,7 +296,7 @@ func init() {
 			a.Name,
 			a.OID,
 			emptyRawValue,
-			CompositeMLDSARSA,
+			a.pubKeyAlgo,
 			crypto.Hash(0), // composite does its own internal PH
 			false,
 		})

@@ -281,6 +281,17 @@ const (
 	CompositeMLDSA65RSA4096PKCS15SHA512
 	CompositeMLDSA87RSA3072PSSHA512
 	CompositeMLDSA87RSA4096PSSHA512
+
+	// Composite ML-DSA+ECDSA algorithms (draft-ietf-lamps-pq-composite-sigs-19).
+	CompositeMLDSA44ECDSAP256SHA256
+	CompositeMLDSA65ECDSAP256SHA512
+	CompositeMLDSA65ECDSAP384SHA512
+	CompositeMLDSA87ECDSAP384SHA512
+	CompositeMLDSA87ECDSAP521SHA512
+
+	// Composite ML-DSA+Ed25519 algorithms (draft-ietf-lamps-pq-composite-sigs-19).
+	CompositeMLDSA44Ed25519SHA512
+	CompositeMLDSA65Ed25519SHA512
 )
 
 func (algo SignatureAlgorithm) isRSAPSS() bool {
@@ -321,16 +332,26 @@ const (
 	MLDSA
 	SLHDSA
 	CompositeMLDSARSA
+	CompositeMLDSAECDSA
+	CompositeMLDSAEd25519
 )
 
 var publicKeyAlgoName = [...]string{
-	RSA:               "RSA",
-	DSA:               "DSA",
-	ECDSA:             "ECDSA",
-	Ed25519:           "Ed25519",
-	MLDSA:             "ML-DSA",
-	CompositeMLDSARSA: "Composite-ML-DSA-RSA",
-	SLHDSA:            "SLH-DSA",
+	RSA:                   "RSA",
+	DSA:                   "DSA",
+	ECDSA:                 "ECDSA",
+	Ed25519:               "Ed25519",
+	MLDSA:                 "ML-DSA",
+	CompositeMLDSARSA:     "Composite-ML-DSA-RSA",
+	CompositeMLDSAECDSA:   "Composite-ML-DSA-ECDSA",
+	CompositeMLDSAEd25519: "Composite-ML-DSA-Ed25519",
+	SLHDSA:                "SLH-DSA",
+}
+
+// isCompositePublicKeyAlgorithm reports whether a identifies any composite
+// (ML-DSA + traditional) public key family.
+func isCompositePublicKeyAlgorithm(a PublicKeyAlgorithm) bool {
+	return a == CompositeMLDSARSA || a == CompositeMLDSAECDSA || a == CompositeMLDSAEd25519
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -597,8 +618,8 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		}
 		return MLDSA
 	default:
-		if compositeAlgorithmByOID(oid) != nil {
-			return CompositeMLDSARSA
+		if alg := compositeAlgorithmByOID(oid); alg != nil {
+			return alg.pubKeyAlgo
 		}
 		scheme := circlPki.SchemeByOid(oid)
 		if scheme == nil {
@@ -1117,7 +1138,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if pubKeyAlgo != Ed25519 && pubKeyAlgo != MLDSA && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil && pubKeyAlgo != CompositeMLDSARSA {
+		if pubKeyAlgo != Ed25519 && pubKeyAlgo != MLDSA && CirclSchemeByPublicKeyAlgorithm(pubKeyAlgo) == nil && !isCompositePublicKeyAlgorithm(pubKeyAlgo) {
 			return ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -1201,15 +1222,15 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		return
 	case *CompositePublicKey:
-		if pubKeyAlgo != CompositeMLDSARSA {
-			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
-		}
 		compAlg := compositeAlgorithmBySigAlgo(algo)
 		if compAlg == nil {
 			return ErrUnsupportedAlgorithm
 		}
+		if pubKeyAlgo != compAlg.pubKeyAlgo {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
 		if !compAlg.CompositeVerify(pub, signed, nil, signature) {
-			return errors.New("x509: composite ML-DSA+RSA verification failure")
+			return fmt.Errorf("x509: composite %s verification failure", compAlg.pubKeyAlgo)
 		}
 		return
 	}
@@ -1774,8 +1795,9 @@ func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm)
 		}
 
 	case *CompositePublicKey:
-		pubType = CompositeMLDSARSA
-		defaultAlgo = compositeAlgorithmByOID(pub.oid).sigAlgo
+		compAlg := compositeAlgorithmByOID(pub.oid)
+		pubType = compAlg.pubKeyAlgo
+		defaultAlgo = compAlg.sigAlgo
 
 	default:
 		return 0, ai, errors.New("x509: only RSA, ECDSA, ML-DSA and Ed25519 keys supported")

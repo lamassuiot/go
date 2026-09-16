@@ -6,7 +6,8 @@ package tls
 
 import "crypto/x509"
 
-// Composite ML-DSA+RSA algorithms (draft-ietf-lamps-pq-composite-sigs).
+// Composite ML-DSA+RSA and ML-DSA+ECDSA algorithms
+// (draft-ietf-lamps-pq-composite-sigs).
 //
 // No IANA codepoints have been assigned for these algorithms in the TLS
 // SignatureScheme registry, so these use the private use range reserved by
@@ -20,6 +21,15 @@ const (
 	CompositeMLDSA65RSA4096PKCS15SHA512 SignatureScheme = 0xFE05
 	CompositeMLDSA87RSA3072PSSHA512     SignatureScheme = 0xFE06
 	CompositeMLDSA87RSA4096PSSHA512     SignatureScheme = 0xFE07
+
+	CompositeMLDSA44ECDSAP256SHA256 SignatureScheme = 0xFE08
+	CompositeMLDSA65ECDSAP256SHA512 SignatureScheme = 0xFE09
+	CompositeMLDSA65ECDSAP384SHA512 SignatureScheme = 0xFE0A
+	CompositeMLDSA87ECDSAP384SHA512 SignatureScheme = 0xFE0B
+	CompositeMLDSA87ECDSAP521SHA512 SignatureScheme = 0xFE0C
+
+	CompositeMLDSA44Ed25519SHA512 SignatureScheme = 0xFE0D
+	CompositeMLDSA65Ed25519SHA512 SignatureScheme = 0xFE0E
 )
 
 // compositeSignatureSchemes pairs each composite SignatureScheme with its
@@ -37,6 +47,13 @@ var compositeSignatureSchemes = []struct {
 	{CompositeMLDSA65RSA4096PKCS15SHA512, x509.MLDSA65_RSA4096_PKCS15_SHA512},
 	{CompositeMLDSA87RSA3072PSSHA512, x509.MLDSA87_RSA3072_PSS_SHA512},
 	{CompositeMLDSA87RSA4096PSSHA512, x509.MLDSA87_RSA4096_PSS_SHA512},
+	{CompositeMLDSA44ECDSAP256SHA256, x509.MLDSA44_ECDSA_P256_SHA256},
+	{CompositeMLDSA65ECDSAP256SHA512, x509.MLDSA65_ECDSA_P256_SHA512},
+	{CompositeMLDSA65ECDSAP384SHA512, x509.MLDSA65_ECDSA_P384_SHA512},
+	{CompositeMLDSA87ECDSAP384SHA512, x509.MLDSA87_ECDSA_P384_SHA512},
+	{CompositeMLDSA87ECDSAP521SHA512, x509.MLDSA87_ECDSA_P521_SHA512},
+	{CompositeMLDSA44Ed25519SHA512, x509.MLDSA44_Ed25519_SHA512},
+	{CompositeMLDSA65Ed25519SHA512, x509.MLDSA65_Ed25519_SHA512},
 }
 
 var (
