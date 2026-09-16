@@ -1181,6 +1181,11 @@ func (c *Conn) verifyServerCertificate(certificates [][]byte) error {
 			c.sendAlert(alertIllegalParameter)
 			return errors.New("tls: server's certificate uses ML-DSA, which requires TLS 1.3")
 		}
+	case *x509.CompositePublicKey:
+		if c.vers < VersionTLS13 {
+			c.sendAlert(alertIllegalParameter)
+			return errors.New("tls: server's certificate uses a composite algorithm, which requires TLS 1.3")
+		}
 	default:
 		c.sendAlert(alertUnsupportedCertificate)
 		return fmt.Errorf("tls: server's certificate contains an unsupported type of public key: %T", certs[0].PublicKey)

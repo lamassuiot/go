@@ -312,6 +312,11 @@ func (hs *serverHandshakeState) processClientHello() error {
 			c.sendAlert(alertInternalError)
 			return fmt.Errorf("tls: ML-DSA certificates require TLS 1.3, but client negotiated %s",
 				VersionName(c.vers))
+		case *x509.CompositePublicKey:
+			// Composite ML-DSA+RSA can only be used with TLS 1.3.
+			c.sendAlert(alertInternalError)
+			return fmt.Errorf("tls: composite certificates require TLS 1.3, but client negotiated %s",
+				VersionName(c.vers))
 		default:
 			c.sendAlert(alertInternalError)
 			return fmt.Errorf("tls: unsupported signing key type (%T)", priv.Public())
@@ -1009,6 +1014,11 @@ func (c *Conn) processCertsFromClient(certificate Certificate) error {
 			if c.vers < VersionTLS13 {
 				c.sendAlert(alertIllegalParameter)
 				return errors.New("tls: client certificate uses ML-DSA, which requires TLS 1.3")
+			}
+		case *x509.CompositePublicKey:
+			if c.vers < VersionTLS13 {
+				c.sendAlert(alertIllegalParameter)
+				return errors.New("tls: client certificate uses a composite algorithm, which requires TLS 1.3")
 			}
 		default:
 			c.sendAlert(alertUnsupportedCertificate)
