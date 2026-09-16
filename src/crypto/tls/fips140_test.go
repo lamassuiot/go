@@ -26,10 +26,40 @@ import (
 )
 
 var testConfigFIPS140 = &Config{
-	Time:         testTime,
-	Certificates: []Certificate{testECDSAP256Cert, testRSAPSSCert, testEd25519Cert, testMLDSA44Cert, testMLDSA65Cert, testMLDSA87Cert},
-	RootCAs:      testRootCertPool,
-	ServerName:   "test.golang.example",
+	Time: testTime,
+	Certificates: append([]Certificate{testECDSAP256Cert, testRSAPSSCert, testEd25519Cert,
+		testMLDSA44Cert, testMLDSA65Cert, testMLDSA87Cert}, testCompositeCerts()...),
+	RootCAs:    testRootCertPool,
+	ServerName: "test.golang.example",
+}
+
+// testCompositeCerts generates, for each supported composite algorithm, a
+// leaf certificate directly issued by testRootCert/testRootKey so it
+// validates against testRootCertPool like the other static test certificates.
+func testCompositeCerts() []Certificate {
+	certs := make([]Certificate, len(x509.CompositeAlgorithms))
+	for i, alg := range x509.CompositeAlgorithms {
+		pub, priv, err := alg.GenerateCompositeKey(rand.Reader)
+		if err != nil {
+			panic(err)
+		}
+		template := &x509.Certificate{
+			SerialNumber:          big.NewInt(int64(i) + 1),
+			Subject:               pkix.Name{CommonName: "test.golang.example"},
+			DNSNames:              []string{"test.golang.example"},
+			NotBefore:             testTime().Add(-time.Hour),
+			NotAfter:              testTime().Add(87600 * time.Hour),
+			KeyUsage:              x509.KeyUsageDigitalSignature,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+			BasicConstraintsValid: true,
+		}
+		der, err := x509.CreateCertificate(rand.Reader, template, testRootCert.Leaf, pub, testRootKey)
+		if err != nil {
+			panic(err)
+		}
+		certs[i] = Certificate{Certificate: [][]byte{der}, PrivateKey: priv}
+	}
+	return certs
 }
 
 func allCipherSuitesIncludingTLS13() []uint16 {
@@ -188,6 +218,10 @@ func isFIPSSignatureScheme(alg SignatureScheme) bool {
 	case PKCS1WithSHA1, ECDSAWithSHA1:
 		return false
 	default:
+		if isCompositeSignatureScheme(alg) {
+			// Composite ML-DSA+RSA is not FIPS 140-3 approved.
+			return false
+		}
 		panic("unknown signature scheme: " + alg.String())
 	}
 }
@@ -288,12 +322,13 @@ func TestFIPSServerSignatureAndHash(t *testing.T) {
 			if isMLDSA {
 				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
 			}
+			requiresTLS13 := isMLDSA || isCompositeSignatureScheme(sigHash)
 			serverConfig := testConfigFIPS140.Clone()
 			testingOnlySupportedSignatureAlgorithms = []SignatureScheme{sigHash}
 			// PKCS#1 v1.5 signature algorithms can't be used standalone in TLS
 			// 1.3, and the ECDSA ones bind to the curve used. However, ML-DSA
-			// requires TLS 1.3.
-			if !isMLDSA {
+			// and composite ML-DSA+RSA require TLS 1.3.
+			if !requiresTLS13 {
 				serverConfig.MaxVersion = VersionTLS12
 			}
 

@@ -12,6 +12,7 @@ import (
 	"crypto/elliptic"
 	"crypto/mldsa"
 	"crypto/rsa"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"hash"
@@ -53,6 +54,14 @@ func verifyHandshakeSignature(sigType uint8, pubkey crypto.PublicKey, hashFunc c
 		}
 		if err := mldsa.Verify(pubKey, signed, sig, nil); err != nil {
 			return fmt.Errorf("ML-DSA verification failure: %w", err)
+		}
+	case signatureComposite:
+		pubKey, ok := pubkey.(*x509.CompositePublicKey)
+		if !ok {
+			return fmt.Errorf("expected a composite public key, got %T", pubkey)
+		}
+		if !pubKey.Algorithm().CompositeVerify(pubKey, signed, nil, sig) {
+			return errors.New("composite signature verification failure")
 		}
 	case signaturePKCS1v15:
 		pubKey, ok := pubkey.(*rsa.PublicKey)
@@ -133,6 +142,11 @@ func signedMessage(context string, transcript hash.Hash) []byte {
 // typeAndHashFromSignatureScheme returns the corresponding signature type and
 // crypto.Hash for a given TLS SignatureScheme.
 func typeAndHashFromSignatureScheme(signatureAlgorithm SignatureScheme) (sigType uint8, hash crypto.Hash, err error) {
+	if isCompositeSignatureScheme(signatureAlgorithm) {
+		// Composite algorithms do their own internal pre-hashing; the raw
+		// message must be passed through unhashed, as with Ed25519/ML-DSA.
+		return signatureComposite, directSigning, nil
+	}
 	switch signatureAlgorithm {
 	case PKCS1WithSHA1, PKCS1WithSHA256, PKCS1WithSHA384, PKCS1WithSHA512:
 		sigType = signaturePKCS1v15
@@ -183,6 +197,8 @@ func legacyTypeAndHashFromPublicKey(pub crypto.PublicKey) (sigType uint8, hash c
 		return 0, 0, fmt.Errorf("tls: Ed25519 public keys are not supported before TLS 1.2")
 	case *mldsa.PublicKey:
 		return 0, 0, fmt.Errorf("tls: ML-DSA public keys are not supported before TLS 1.3")
+	case *x509.CompositePublicKey:
+		return 0, 0, fmt.Errorf("tls: composite public keys are not supported before TLS 1.3")
 	default:
 		return 0, 0, fmt.Errorf("tls: unsupported public key: %T", pub)
 	}
@@ -250,6 +266,11 @@ func signatureSchemesForPublicKey(version uint16, pub crypto.PublicKey) []Signat
 		default:
 			panic("tls: internal error: unknown ML-DSA parameter set: " + pub.Parameters().String())
 		}
+	case *x509.CompositePublicKey:
+		if scheme, ok := compositeSchemeByAlgorithm[pub.Algorithm()]; ok {
+			return []SignatureScheme{scheme}
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -328,6 +349,8 @@ func unsupportedCertificateError(cert *Certificate) error {
 	case ed25519.PublicKey:
 	case *mldsa.PublicKey:
 		return errors.New("tls: ML-DSA certificates require TLS 1.3")
+	case *x509.CompositePublicKey:
+		return errors.New("tls: composite certificates require TLS 1.3")
 	default:
 		return fmt.Errorf("tls: unsupported certificate key (%T)", pub)
 	}

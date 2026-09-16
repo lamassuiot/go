@@ -220,6 +220,7 @@ const (
 	signatureECDSA
 	signatureEd25519
 	signatureMLDSA
+	signatureComposite
 )
 
 // directSigning is a standard Hash value that signals that no pre-hashing
@@ -1507,6 +1508,9 @@ func (chi *ClientHelloInfo) SupportsCertificate(c *Certificate) error {
 		case *mldsa.PublicKey:
 			// ML-DSA requires TLS 1.3, which we already excluded above.
 			return errors.New("connection doesn't support ML-DSA")
+		case *x509.CompositePublicKey:
+			// Composite ML-DSA+RSA requires TLS 1.3, which we already excluded above.
+			return errors.New("connection doesn't support composite ML-DSA+RSA")
 		case *rsa.PublicKey:
 		default:
 			return supportsRSAFallback(unsupportedCertificateError(c))
@@ -1803,6 +1807,12 @@ func isDisabledSignatureAlgorithm(version uint16, s SignatureScheme, isCert bool
 			return true
 		}
 		// ML-DSA codepoints are only defined for TLS 1.3.
+		if version < VersionTLS13 {
+			return true
+		}
+	}
+	if isCompositeSignatureScheme(s) {
+		// Composite ML-DSA+RSA codepoints are only defined for TLS 1.3.
 		if version < VersionTLS13 {
 			return true
 		}
