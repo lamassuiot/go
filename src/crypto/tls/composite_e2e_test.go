@@ -48,7 +48,21 @@ func compositeTestCert(t *testing.T, alg *x509.CompositeAlgorithm, cn string) Ce
 }
 
 func TestCompositeHandshakeTLS13(t *testing.T) {
-	alg := x509.MLDSA65_RSA3072_PSS_SHA512
+	skipFIPS(t)
+	testCompositeHandshakeTLS13(t, x509.MLDSA65_RSA3072_PSS_SHA512)
+}
+
+func TestCompositeHandshakeTLS13ECDSA(t *testing.T) {
+	skipFIPS(t)
+	testCompositeHandshakeTLS13(t, x509.MLDSA65_ECDSA_P384_SHA512)
+}
+
+func TestCompositeHandshakeTLS13Ed25519(t *testing.T) {
+	skipFIPS(t)
+	testCompositeHandshakeTLS13(t, x509.MLDSA65_Ed25519_SHA512)
+}
+
+func testCompositeHandshakeTLS13(t *testing.T, alg *x509.CompositeAlgorithm) {
 	serverCert := compositeTestCert(t, alg, "example.com")
 	clientCert := compositeTestCert(t, alg, "client")
 
@@ -112,6 +126,8 @@ func TestCompositeHandshakeTLS13(t *testing.T) {
 }
 
 func TestCompositeSignatureSchemesExcludedFromTLS12(t *testing.T) {
+	skipFIPS(t)
+
 	algs := supportedSignatureAlgorithms(VersionTLS10, VersionTLS12)
 	for _, a := range algs {
 		if isCompositeSignatureScheme(a) {

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -364,8 +365,15 @@ func TestCompositeSelfSignedCert(t *testing.T) {
 				t.Fatalf("ParseCertificate: %v", err)
 			}
 
-			if cert.PublicKeyAlgorithm != x509.CompositeMLDSARSA {
-				t.Fatalf("PublicKeyAlgorithm: got %v, want CompositeMLDSARSA", cert.PublicKeyAlgorithm)
+			wantAlgo := x509.CompositeMLDSARSA
+			switch {
+			case strings.Contains(alg.Name, "ECDSA"):
+				wantAlgo = x509.CompositeMLDSAECDSA
+			case strings.Contains(alg.Name, "Ed25519"):
+				wantAlgo = x509.CompositeMLDSAEd25519
+			}
+			if cert.PublicKeyAlgorithm != wantAlgo {
+				t.Fatalf("PublicKeyAlgorithm: got %v, want %v", cert.PublicKeyAlgorithm, wantAlgo)
 			}
 
 			if err := cert.CheckSignatureFrom(cert); err != nil {

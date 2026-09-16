@@ -47,18 +47,18 @@ func curvePreferenceOrder() []CurveID {
 // CertificateRequest. The two fields are merged to match with TLS 1.3.
 // Note that in TLS 1.2, the ECDSA algorithms are not constrained to P-256, etc.
 func defaultSupportedSignatureAlgorithms() []SignatureScheme {
-	return []SignatureScheme{
+	algs := []SignatureScheme{
 		MLDSA44,
 		MLDSA65,
 		MLDSA87,
-		CompositeMLDSA44RSA2048PSSHA256,
-		CompositeMLDSA44RSA2048PKCS15SHA256,
-		CompositeMLDSA65RSA3072PSSHA512,
-		CompositeMLDSA65RSA3072PKCS15SHA512,
-		CompositeMLDSA65RSA4096PSSHA512,
-		CompositeMLDSA65RSA4096PKCS15SHA512,
-		CompositeMLDSA87RSA3072PSSHA512,
-		CompositeMLDSA87RSA4096PSSHA512,
+	}
+	// Every composite scheme in compositeSignatureSchemes, in its
+	// preference order; adding an algorithm there is enough to advertise
+	// it here too.
+	for _, e := range compositeSignatureSchemes {
+		algs = append(algs, e.scheme)
+	}
+	return append(algs,
 		PSSWithSHA256,
 		ECDSAWithP256AndSHA256,
 		Ed25519,
@@ -71,7 +71,7 @@ func defaultSupportedSignatureAlgorithms() []SignatureScheme {
 		ECDSAWithP521AndSHA512,
 		PKCS1WithSHA1,
 		ECDSAWithSHA1,
-	}
+	)
 }
 
 func supportedCipherSuites(aesGCMPreferred bool) []uint16 {
