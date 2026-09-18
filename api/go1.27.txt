@@ -40,6 +40,36 @@ pkg crypto/mldsa, type Options struct, Context string #77626
 pkg crypto/mldsa, type Parameters struct #77626
 pkg crypto/mldsa, type PrivateKey struct #77626
 pkg crypto/mldsa, type PublicKey struct #77626
+pkg crypto/tls, const CompositeMLDSA44ECDSAP256SHA256 = 65032 #000000
+pkg crypto/tls, const CompositeMLDSA44ECDSAP256SHA256 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA44Ed25519SHA512 = 65037 #000000
+pkg crypto/tls, const CompositeMLDSA44Ed25519SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PKCS15SHA256 = 65025 #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PKCS15SHA256 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PSSHA256 = 65024 #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PSSHA256 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP256SHA512 = 65033 #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP256SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP384SHA512 = 65034 #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP384SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65Ed25519SHA512 = 65038 #000000
+pkg crypto/tls, const CompositeMLDSA65Ed25519SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PKCS15SHA512 = 65027 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PKCS15SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PSSHA512 = 65026 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PSSHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PKCS15SHA512 = 65029 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PKCS15SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PSSHA512 = 65028 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PSSHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP384SHA512 = 65035 #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP384SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP521SHA512 = 65036 #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP521SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87RSA3072PSSHA512 = 65030 #000000
+pkg crypto/tls, const CompositeMLDSA87RSA3072PSSHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87RSA4096PSSHA512 = 65031 #000000
+pkg crypto/tls, const CompositeMLDSA87RSA4096PSSHA512 SignatureScheme #000000
 pkg crypto/tls, const MLDSA44 = 2308 #78888
 pkg crypto/tls, const MLDSA44 SignatureScheme #78888
 pkg crypto/tls, const MLDSA65 = 2309 #78888
@@ -481,6 +511,24 @@ pkg crypto/x509, const CompositeMLDSA87RSA3072PSSHA512 = 38 #000000
 pkg crypto/x509, const CompositeMLDSA87RSA3072PSSHA512 SignatureAlgorithm #000000
 pkg crypto/x509, const CompositeMLDSA87RSA4096PSSHA512 = 39 #000000
 pkg crypto/x509, const CompositeMLDSA87RSA4096PSSHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA44ECDSAP256SHA256 = 40 #000000
+pkg crypto/x509, const CompositeMLDSA44ECDSAP256SHA256 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA65ECDSAP256SHA512 = 41 #000000
+pkg crypto/x509, const CompositeMLDSA65ECDSAP256SHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA65ECDSAP384SHA512 = 42 #000000
+pkg crypto/x509, const CompositeMLDSA65ECDSAP384SHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA87ECDSAP384SHA512 = 43 #000000
+pkg crypto/x509, const CompositeMLDSA87ECDSAP384SHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA87ECDSAP521SHA512 = 44 #000000
+pkg crypto/x509, const CompositeMLDSA87ECDSAP521SHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA44Ed25519SHA512 = 45 #000000
+pkg crypto/x509, const CompositeMLDSA44Ed25519SHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSA65Ed25519SHA512 = 46 #000000
+pkg crypto/x509, const CompositeMLDSA65Ed25519SHA512 SignatureAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSAECDSA = 8 #000000
+pkg crypto/x509, const CompositeMLDSAECDSA PublicKeyAlgorithm #000000
+pkg crypto/x509, const CompositeMLDSAEd25519 = 9 #000000
+pkg crypto/x509, const CompositeMLDSAEd25519 PublicKeyAlgorithm #000000
 pkg crypto/x509, const CompositeMLDSARSA = 7 #000000
 pkg crypto/x509, const CompositeMLDSARSA PublicKeyAlgorithm #000000
 pkg crypto/x509, const PureSLHDSASHA2128f = 21 #000000
@@ -540,6 +588,19 @@ pkg crypto/x509, var MLDSA65_RSA4096_PKCS15_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA65_RSA4096_PSS_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA87_RSA3072_PSS_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA87_RSA4096_PSS_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA44_ECDSA_P256_SHA256 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA65_ECDSA_P256_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA65_ECDSA_P384_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA87_ECDSA_P384_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA87_ECDSA_P521_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA44_Ed25519_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, var MLDSA65_Ed25519_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, func NewECDSAPrivateKey(io.Reader, elliptic.Curve, crypto.Hash) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewECDSAPrivateKeyFromBytes(elliptic.Curve, crypto.Hash, []uint8) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewECDSAPublicKeyFromBytes(elliptic.Curve, crypto.Hash, []uint8) (InnerPublicKey, error) #000000
+pkg crypto/x509, func NewEd25519PrivateKey(io.Reader) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewEd25519PrivateKeyFromBytes([]uint8) (InnerPrivateKey, error) #000000
+pkg crypto/x509, func NewEd25519PublicKeyFromBytes([]uint8) (InnerPublicKey, error) #000000
 pkg crypto/x509, func NewMLDSAPrivateKey(io.Reader, mldsa.Parameters, string) (InnerPrivateKey, error) #000000
 pkg crypto/x509, func NewMLDSAPrivateKeyFromBytes(mldsa.Parameters, string, []uint8) (InnerPrivateKey, error) #000000
 pkg crypto/x509, func NewMLDSAPublicKeyFromBytes(mldsa.Parameters, string, []uint8) (InnerPublicKey, error) #000000
