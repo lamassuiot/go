@@ -40,6 +40,36 @@ pkg crypto/mldsa, type Options struct, Context string #77626
 pkg crypto/mldsa, type Parameters struct #77626
 pkg crypto/mldsa, type PrivateKey struct #77626
 pkg crypto/mldsa, type PublicKey struct #77626
+pkg crypto/tls, const CompositeMLDSA44ECDSAP256SHA256 = 65032 #000000
+pkg crypto/tls, const CompositeMLDSA44ECDSAP256SHA256 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA44Ed25519SHA512 = 65037 #000000
+pkg crypto/tls, const CompositeMLDSA44Ed25519SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PKCS15SHA256 = 65025 #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PKCS15SHA256 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PSSHA256 = 65024 #000000
+pkg crypto/tls, const CompositeMLDSA44RSA2048PSSHA256 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP256SHA512 = 65033 #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP256SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP384SHA512 = 65034 #000000
+pkg crypto/tls, const CompositeMLDSA65ECDSAP384SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65Ed25519SHA512 = 65038 #000000
+pkg crypto/tls, const CompositeMLDSA65Ed25519SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PKCS15SHA512 = 65027 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PKCS15SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PSSHA512 = 65026 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA3072PSSHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PKCS15SHA512 = 65029 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PKCS15SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PSSHA512 = 65028 #000000
+pkg crypto/tls, const CompositeMLDSA65RSA4096PSSHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP384SHA512 = 65035 #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP384SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP521SHA512 = 65036 #000000
+pkg crypto/tls, const CompositeMLDSA87ECDSAP521SHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87RSA3072PSSHA512 = 65030 #000000
+pkg crypto/tls, const CompositeMLDSA87RSA3072PSSHA512 SignatureScheme #000000
+pkg crypto/tls, const CompositeMLDSA87RSA4096PSSHA512 = 65031 #000000
+pkg crypto/tls, const CompositeMLDSA87RSA4096PSSHA512 SignatureScheme #000000
 pkg crypto/tls, const MLDSA44 = 2308 #78888
 pkg crypto/tls, const MLDSA44 SignatureScheme #78888
 pkg crypto/tls, const MLDSA65 = 2309 #78888
