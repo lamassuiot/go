@@ -44,12 +44,14 @@ type CompositeAlgorithm struct {
 }
 
 // newBuildMPrime returns the buildMPrime closure for an algorithm using
-// hash as PH and label as the domain-separation label. M' has two shapes
-// (doc/composite/build_m_prime_activity.puml), chosen once here rather
-// than branched on every call:
+// hash as PH and label as the domain-separation label. M' has two shapes,
+// chosen once here rather than branched on every call:
 //
 //	M' = Prefix || Label || len(ctx) || ctx || PH(msg)                 (ML-DSA)
 //	M' = Prefix || len(Label) || Label || len(ctx) || ctx || PH(msg)   (otherwise)
+//
+// The ML-DSA shape is the one defined in draft-ietf-lamps-pq-composite-sigs-19,
+// Section 3.2, and is the one every algorithm in this package uses.
 func newBuildMPrime(isMLDSA bool, hash crypto.Hash, label string) func(msg, ctx []byte) ([]byte, error) {
 	labelBytes := []byte(label)
 	ph := func(msg []byte) []byte {
@@ -116,7 +118,8 @@ func newCompositeAlgorithm(
 	return a
 }
 
-// Pre-declared algorithm instances (spec Section 6 / Table 1).
+// Pre-declared algorithm instances (draft-ietf-lamps-pq-composite-sigs-19,
+// Section 6).
 var (
 	MLDSA44_RSA2048_PSS_SHA256 = newCompositeAlgorithm(
 		"MLDSA44-RSA2048-PSS-SHA256", "COMPSIG-MLDSA44-RSA2048-PSS-SHA256",
@@ -184,14 +187,14 @@ var (
 	)
 
 	// Composite ML-DSA+ECDSA algorithms (draft-ietf-lamps-pq-composite-sigs-19,
-	// Section 6 / Table 1). Only the NIST-curve combinations are supported:
+	// Section 6). Only the NIST-curve combinations are supported:
 	// the brainpool-curve entries (id-MLDSA65-ECDSA-brainpoolP256r1-SHA512,
 	// id-MLDSA87-ECDSA-brainpoolP384r1-SHA512) have no Go standard library
 	// curve implementation and are intentionally omitted.
 	//
 	// The ECDSA component always signs M' with the curve's native hash
 	// (ecdsa-with-SHA256 for P-256, ecdsa-with-SHA384 for P-384,
-	// ecdsa-with-SHA512 for P-521, per src/algParams.md), independently of the
+	// ecdsa-with-SHA512 for P-521, per Section 6), independently of the
 	// composite pre-hash PH that names the algorithm (e.g. -SHA512).
 	MLDSA44_ECDSA_P256_SHA256 = newCompositeAlgorithm(
 		"MLDSA44-ECDSA-P256-SHA256", "COMPSIG-MLDSA44-ECDSA-P256-SHA256",
@@ -235,7 +238,7 @@ var (
 	)
 
 	// Composite ML-DSA+Ed25519 algorithms (draft-ietf-lamps-pq-composite-sigs-19,
-	// Section 6 / Table 1). The draft defines no ML-DSA87+Ed25519 combination
+	// Section 6). The draft defines no ML-DSA87+Ed25519 combination
 	// (ML-DSA-87 pairs with Ed448 instead, which isn't implemented here).
 	MLDSA44_Ed25519_SHA512 = newCompositeAlgorithm(
 		"MLDSA44-Ed25519-SHA512", "COMPSIG-MLDSA44-Ed25519-SHA512",
