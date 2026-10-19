@@ -5,13 +5,14 @@
 package x509
 
 // White-box tests for the composite adapter layer: innerPrivateKey /
-// innerPublicKey, the ML-DSA and RSA adapters, and CompositeAlgorithm's
-// prototype keys. x509_composite_test.go / x509_composite_tv_test.go
+// innerPublicKey, the ML-DSA, RSA, ECDSA and Ed25519 adapters, and
+// CompositeAlgorithm's prototype keys. x509_composite_test.go / x509_composite_tv_test.go
 // cover the external contract.
 
 import (
 	"bytes"
 	"crypto"
+	"crypto/elliptic"
 	"crypto/mldsa"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
@@ -23,18 +24,29 @@ var (
 	_ innerPublicKey  = (*mldsaInnerPublicKey)(nil)
 	_ innerPrivateKey = (*rsaInnerPrivateKey)(nil)
 	_ innerPublicKey  = (*rsaInnerPublicKey)(nil)
+	_ innerPrivateKey = (*ecdsaInnerPrivateKey)(nil)
+	_ innerPublicKey  = (*ecdsaInnerPublicKey)(nil)
+	_ innerPrivateKey = (*ed25519InnerPrivateKey)(nil)
+	_ innerPublicKey  = (*ed25519InnerPublicKey)(nil)
 )
 
 type innerKeyCase struct {
 	name  string
 	proto innerPrivateKey
+	// variableSigSize is set when SignatureSize is only an upper bound,
+	// as for ECDSA's ASN.1 (r, s) signatures.
+	variableSigSize bool
 }
 
 func innerKeyCases() []innerKeyCase {
 	return []innerKeyCase{
-		{"ML-DSA-44", newMLDSAInnerPrivateKey(mldsa.MLDSA44(), "test-label", nil)},
-		{"RSA-2048-PSS", newRSAInnerPrivateKey(2048, crypto.SHA256, true, nil)},
-		{"RSA-2048-PKCS15", newRSAInnerPrivateKey(2048, crypto.SHA256, false, nil)},
+		{"ML-DSA-44", newMLDSAInnerPrivateKey(mldsa.MLDSA44(), "test-label", nil), false},
+		{"RSA-2048-PSS", newRSAInnerPrivateKey(2048, crypto.SHA256, true, nil), false},
+		{"RSA-2048-PKCS15", newRSAInnerPrivateKey(2048, crypto.SHA256, false, nil), false},
+		{"ECDSA-P256", newECDSAInnerPrivateKey(elliptic.P256(), crypto.SHA256, nil), true},
+		{"ECDSA-P384", newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA384, nil), true},
+		{"ECDSA-P521", newECDSAInnerPrivateKey(elliptic.P521(), crypto.SHA512, nil), true},
+		{"Ed25519", newEd25519InnerPrivateKey(nil), false},
 	}
 }
 
@@ -112,7 +124,7 @@ func TestInnerPrivateKeyUnmarshallRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Sign after unmarshal: %v", err)
 			}
-			if len(sig) != pk.SignatureSize() {
+			if len(sig) > pk.SignatureSize() || !tc.variableSigSize && len(sig) != pk.SignatureSize() {
 				t.Fatalf("signature length = %d, want SignatureSize() = %d", len(sig), pk.SignatureSize())
 			}
 			if !pk2.Verify(msg, sig) {
@@ -120,6 +132,17 @@ func TestInnerPrivateKeyUnmarshallRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestECPrivateKeySizeUnregisteredCurve checks that ecPrivateKeySize panics
+// for a curve with no registered OID instead of returning a bogus size.
+func TestECPrivateKeySizeUnregisteredCurve(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("ecPrivateKeySize did not panic for a curve with no registered OID")
+		}
+	}()
+	ecPrivateKeySize(&elliptic.CurveParams{Name: "unregistered", BitSize: 256})
 }
 
 // TestCompositeAlgorithmPrototypesNeverGenerateEagerly checks that a

@@ -69,14 +69,22 @@ func ecScalarSize(curve elliptic.Curve) int {
 }
 
 // ecPrivateKeySize returns the exact size of curve's private key encoding
-// (as produced by marshalCompositeECPrivateKey).
+// (as produced by marshalCompositeECPrivateKey). It panics if curve has no
+// registered OID, so that adding an algorithm on such a curve fails at
+// package initialization rather than producing a bogus Size().
 func ecPrivateKeySize(curve elliptic.Curve) int {
-	oid, _ := oidFromNamedCurve(curve) // curve is always one we registered
-	b, _ := asn1.Marshal(ecPrivateKey{
+	oid, ok := oidFromNamedCurve(curve)
+	if !ok {
+		panic("x509: composite ECDSA algorithm on a curve with no registered OID: " + curve.Params().Name)
+	}
+	b, err := asn1.Marshal(ecPrivateKey{
 		Version:       ecPrivKeyVersion,
 		PrivateKey:    make([]byte, ecScalarSize(curve)),
 		NamedCurveOID: oid,
 	})
+	if err != nil {
+		panic("x509: failed to encode composite ECDSA private key: " + err.Error())
+	}
 	return len(b)
 }
 
