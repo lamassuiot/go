@@ -21,6 +21,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/asn1"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -98,7 +99,9 @@ func marshalCompositeECPrivateKey(sk *ecdsa.PrivateKey) ([]byte, error) {
 }
 
 // parseCompositeECPrivateKey parses an RFC 5915 ECPrivateKey for curve. The
-// curve OID may be omitted, but if present it must match curve.
+// curve OID may be omitted, but if present it must match curve. Unlike
+// [ParseECPrivateKey], the private key must be exactly as long as the curve
+// order, as RFC 5915 requires, without missing or extra leading zeros.
 func parseCompositeECPrivateKey(curve elliptic.Curve, der []byte) (*ecdsa.PrivateKey, error) {
 	oid, ok := oidFromNamedCurve(curve)
 	if !ok {
@@ -112,10 +115,16 @@ func parseCompositeECPrivateKey(curve elliptic.Curve, der []byte) (*ecdsa.Privat
 	if len(rest) != 0 {
 		return nil, errors.New("x509: trailing data after composite ECDSA private key")
 	}
+	if priv.Version != ecPrivKeyVersion {
+		return nil, fmt.Errorf("x509: unknown composite ECDSA private key version %d", priv.Version)
+	}
 	if len(priv.NamedCurveOID) != 0 && !priv.NamedCurveOID.Equal(oid) {
 		return nil, errors.New("x509: composite ECDSA private key curve does not match algorithm")
 	}
-	return parseECPrivateKey(&oid, der)
+	if len(priv.PrivateKey) != ecScalarSize(curve) {
+		return nil, fmt.Errorf("x509: invalid composite ECDSA private key length: %d", len(priv.PrivateKey))
+	}
+	return ecdsa.ParseRawPrivateKey(curve, priv.PrivateKey)
 }
 
 // newECDSAInnerPrivateKey builds the adapter around sk. sk may be nil
@@ -163,7 +172,8 @@ func newECDSAPrivateKey(rnd io.Reader, curve elliptic.Curve, hash crypto.Hash) (
 //
 // For compatibility with keys written by earlier versions of this package,
 // a raw fixed-length big-endian scalar is accepted too. It can't be mistaken
-// for an ECPrivateKey, which is always longer than the scalar it wraps.
+// for an ECPrivateKey: parseCompositeECPrivateKey only accepts one whose
+// private key is a full-length scalar, which makes it longer than a raw one.
 func newECDSAPrivateKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []byte) (innerPrivateKey, error) {
 	var sk *ecdsa.PrivateKey
 	var err error

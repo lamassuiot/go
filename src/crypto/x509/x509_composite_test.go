@@ -635,6 +635,45 @@ func TestCompositeRejectsParameters(t *testing.T) {
 	})
 }
 
+// TestCompositeECDSAPrivateKeyNonConforming checks that an ML-DSA+ECDSA
+// private key is rejected unless its ECPrivateKey is version 1 and holds a
+// full-length scalar, so that no accepted encoding can have the length of a
+// legacy raw scalar.
+func TestCompositeECDSAPrivateKeyNonConforming(t *testing.T) {
+	for _, tc := range ecdsaTVCases() {
+		t.Run(tc.alg.Name, func(t *testing.T) {
+			seed, tradSK := tc.skBytes[:mldsa.PrivateKeySize], tc.skBytes[mldsa.PrivateKeySize:]
+			var ec struct {
+				Version       int
+				PrivateKey    []byte
+				NamedCurveOID asn1.ObjectIdentifier `asn1:"optional,explicit,tag:0"`
+			}
+			if _, err := asn1.Unmarshal(tradSK, &ec); err != nil {
+				t.Fatal(err)
+			}
+			scalar := ec.PrivateKey
+			for _, v := range []struct {
+				name    string
+				version int
+				scalar  []byte
+			}{
+				{"Truncated", 1, scalar[1:]},
+				{"ExtraLeadingZero", 1, append([]byte{0}, scalar...)},
+				{"Version0", 0, scalar},
+			} {
+				ec.Version, ec.PrivateKey = v.version, v.scalar
+				der, err := asn1.Marshal(ec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := tc.alg.ParseCompositePrivateKeyRaw(append(bytes.Clone(seed), der...)); err == nil {
+					t.Errorf("%s: ParseCompositePrivateKeyRaw accepted a non-conforming ECPrivateKey", v.name)
+				}
+			}
+		})
+	}
+}
+
 // TestCompositeSelfSignedCert verifies that a self-signed X.509 certificate
 // can be created and verified for every composite ML-DSA+RSA algorithm.
 func TestCompositeSelfSignedCert(t *testing.T) {
