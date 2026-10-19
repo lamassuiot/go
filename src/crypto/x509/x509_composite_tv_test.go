@@ -3,7 +3,7 @@ package x509_test
 import "crypto/x509"
 
 // buildCompositeTVCases returns the 8 RSA composite IETF test vectors.
-// Source: https://github.com/lamps-wg/draft-composite-sigs/blob/main/src/testvectors.json
+// Source: https://github.com/lamps-wg/draft-composite-sigs/blob/draft-ietf-lamps-pq-composite-sigs-19/src/testvectors.json
 func buildCompositeTVCases() []tvCase {
 	return []tvCase{
 		// id-MLDSA44-RSA2048-PSS-SHA256
