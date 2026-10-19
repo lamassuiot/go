@@ -188,6 +188,11 @@ var (
 	// the brainpool-curve entries (id-MLDSA65-ECDSA-brainpoolP256r1-SHA512,
 	// id-MLDSA87-ECDSA-brainpoolP384r1-SHA512) have no Go standard library
 	// curve implementation and are intentionally omitted.
+	//
+	// The ECDSA component always signs M' with the curve's native hash
+	// (ecdsa-with-SHA256 for P-256, ecdsa-with-SHA384 for P-384,
+	// ecdsa-with-SHA512 for P-521, per src/algParams.md), independently of the
+	// composite pre-hash PH that names the algorithm (e.g. -SHA512).
 	MLDSA44_ECDSA_P256_SHA256 = newCompositeAlgorithm(
 		"MLDSA44-ECDSA-P256-SHA256", "COMPSIG-MLDSA44-ECDSA-P256-SHA256",
 		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 40}, CompositeMLDSA44ECDSAP256SHA256, CompositeMLDSAECDSA, true, crypto.SHA256,
@@ -200,25 +205,25 @@ var (
 		"MLDSA65-ECDSA-P256-SHA512", "COMPSIG-MLDSA65-ECDSA-P256-SHA512",
 		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 45}, CompositeMLDSA65ECDSAP256SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P256-SHA512", nil),
-		newECDSAInnerPrivateKey(elliptic.P256(), crypto.SHA512, nil),
+		newECDSAInnerPrivateKey(elliptic.P256(), crypto.SHA256, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P256-SHA512", nil),
-		newECDSAInnerPublicKey(elliptic.P256(), crypto.SHA512, nil),
+		newECDSAInnerPublicKey(elliptic.P256(), crypto.SHA256, nil),
 	)
 	MLDSA65_ECDSA_P384_SHA512 = newCompositeAlgorithm(
 		"MLDSA65-ECDSA-P384-SHA512", "COMPSIG-MLDSA65-ECDSA-P384-SHA512",
 		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 46}, CompositeMLDSA65ECDSAP384SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P384-SHA512", nil),
-		newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA512, nil),
+		newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA384, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA65(), "COMPSIG-MLDSA65-ECDSA-P384-SHA512", nil),
-		newECDSAInnerPublicKey(elliptic.P384(), crypto.SHA512, nil),
+		newECDSAInnerPublicKey(elliptic.P384(), crypto.SHA384, nil),
 	)
 	MLDSA87_ECDSA_P384_SHA512 = newCompositeAlgorithm(
 		"MLDSA87-ECDSA-P384-SHA512", "COMPSIG-MLDSA87-ECDSA-P384-SHA512",
 		asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 49}, CompositeMLDSA87ECDSAP384SHA512, CompositeMLDSAECDSA, true, crypto.SHA512,
 		newMLDSAInnerPrivateKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-ECDSA-P384-SHA512", nil),
-		newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA512, nil),
+		newECDSAInnerPrivateKey(elliptic.P384(), crypto.SHA384, nil),
 		newMLDSAInnerPublicKey(mldsa.MLDSA87(), "COMPSIG-MLDSA87-ECDSA-P384-SHA512", nil),
-		newECDSAInnerPublicKey(elliptic.P384(), crypto.SHA512, nil),
+		newECDSAInnerPublicKey(elliptic.P384(), crypto.SHA384, nil),
 	)
 	MLDSA87_ECDSA_P521_SHA512 = newCompositeAlgorithm(
 		"MLDSA87-ECDSA-P521-SHA512", "COMPSIG-MLDSA87-ECDSA-P521-SHA512",
