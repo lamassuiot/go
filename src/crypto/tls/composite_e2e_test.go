@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -143,5 +144,16 @@ func TestCompositeSignatureSchemesExcludedFromTLS12(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("composite schemes not advertised when TLS 1.3 is in range")
+	}
+}
+
+// TestCompositeSignatureSchemeString checks that every composite
+// SignatureScheme has a name, that is, that common_string.go was
+// regenerated after adding it.
+func TestCompositeSignatureSchemeString(t *testing.T) {
+	for _, s := range compositeSignatureSchemes {
+		if got := s.scheme.String(); strings.HasPrefix(got, "SignatureScheme(") {
+			t.Errorf("%#04x has no name: %s", uint16(s.scheme), got)
+		}
 	}
 }

@@ -23,53 +23,63 @@ func _() {
 	_ = x[MLDSA87-2310]
 	_ = x[PKCS1WithSHA1-513]
 	_ = x[ECDSAWithSHA1-515]
+	_ = x[CompositeMLDSA44RSA2048PSSHA256-65024]
+	_ = x[CompositeMLDSA44RSA2048PKCS15SHA256-65025]
+	_ = x[CompositeMLDSA65RSA3072PSSHA512-65026]
+	_ = x[CompositeMLDSA65RSA3072PKCS15SHA512-65027]
+	_ = x[CompositeMLDSA65RSA4096PSSHA512-65028]
+	_ = x[CompositeMLDSA65RSA4096PKCS15SHA512-65029]
+	_ = x[CompositeMLDSA87RSA3072PSSHA512-65030]
+	_ = x[CompositeMLDSA87RSA4096PSSHA512-65031]
+	_ = x[CompositeMLDSA44ECDSAP256SHA256-65032]
+	_ = x[CompositeMLDSA65ECDSAP256SHA512-65033]
+	_ = x[CompositeMLDSA65ECDSAP384SHA512-65034]
+	_ = x[CompositeMLDSA87ECDSAP384SHA512-65035]
+	_ = x[CompositeMLDSA87ECDSAP521SHA512-65036]
+	_ = x[CompositeMLDSA44Ed25519SHA512-65037]
+	_ = x[CompositeMLDSA65Ed25519SHA512-65038]
 }
 
-const (
-	_SignatureScheme_name_0 = "PKCS1WithSHA1"
-	_SignatureScheme_name_1 = "ECDSAWithSHA1"
-	_SignatureScheme_name_2 = "PKCS1WithSHA256"
-	_SignatureScheme_name_3 = "ECDSAWithP256AndSHA256"
-	_SignatureScheme_name_4 = "PKCS1WithSHA384"
-	_SignatureScheme_name_5 = "ECDSAWithP384AndSHA384"
-	_SignatureScheme_name_6 = "PKCS1WithSHA512"
-	_SignatureScheme_name_7 = "ECDSAWithP521AndSHA512"
-	_SignatureScheme_name_8 = "PSSWithSHA256PSSWithSHA384PSSWithSHA512Ed25519"
-	_SignatureScheme_name_9 = "MLDSA44MLDSA65MLDSA87"
-)
+const _SignatureScheme_name = "PKCS1WithSHA1ECDSAWithSHA1PKCS1WithSHA256ECDSAWithP256AndSHA256PKCS1WithSHA384ECDSAWithP384AndSHA384PKCS1WithSHA512ECDSAWithP521AndSHA512PSSWithSHA256PSSWithSHA384PSSWithSHA512Ed25519MLDSA44MLDSA65MLDSA87CompositeMLDSA44RSA2048PSSHA256CompositeMLDSA44RSA2048PKCS15SHA256CompositeMLDSA65RSA3072PSSHA512CompositeMLDSA65RSA3072PKCS15SHA512CompositeMLDSA65RSA4096PSSHA512CompositeMLDSA65RSA4096PKCS15SHA512CompositeMLDSA87RSA3072PSSHA512CompositeMLDSA87RSA4096PSSHA512CompositeMLDSA44ECDSAP256SHA256CompositeMLDSA65ECDSAP256SHA512CompositeMLDSA65ECDSAP384SHA512CompositeMLDSA87ECDSAP384SHA512CompositeMLDSA87ECDSAP521SHA512CompositeMLDSA44Ed25519SHA512CompositeMLDSA65Ed25519SHA512"
 
-var (
-	_SignatureScheme_index_8 = [...]uint8{0, 13, 26, 39, 46}
-	_SignatureScheme_index_9 = [...]uint8{0, 7, 14, 21}
-)
+var _SignatureScheme_map = map[SignatureScheme]string{
+	513:   _SignatureScheme_name[0:13],
+	515:   _SignatureScheme_name[13:26],
+	1025:  _SignatureScheme_name[26:41],
+	1027:  _SignatureScheme_name[41:63],
+	1281:  _SignatureScheme_name[63:78],
+	1283:  _SignatureScheme_name[78:100],
+	1537:  _SignatureScheme_name[100:115],
+	1539:  _SignatureScheme_name[115:137],
+	2052:  _SignatureScheme_name[137:150],
+	2053:  _SignatureScheme_name[150:163],
+	2054:  _SignatureScheme_name[163:176],
+	2055:  _SignatureScheme_name[176:183],
+	2308:  _SignatureScheme_name[183:190],
+	2309:  _SignatureScheme_name[190:197],
+	2310:  _SignatureScheme_name[197:204],
+	65024: _SignatureScheme_name[204:235],
+	65025: _SignatureScheme_name[235:270],
+	65026: _SignatureScheme_name[270:301],
+	65027: _SignatureScheme_name[301:336],
+	65028: _SignatureScheme_name[336:367],
+	65029: _SignatureScheme_name[367:402],
+	65030: _SignatureScheme_name[402:433],
+	65031: _SignatureScheme_name[433:464],
+	65032: _SignatureScheme_name[464:495],
+	65033: _SignatureScheme_name[495:526],
+	65034: _SignatureScheme_name[526:557],
+	65035: _SignatureScheme_name[557:588],
+	65036: _SignatureScheme_name[588:619],
+	65037: _SignatureScheme_name[619:648],
+	65038: _SignatureScheme_name[648:677],
+}
 
 func (i SignatureScheme) String() string {
-	switch {
-	case i == 513:
-		return _SignatureScheme_name_0
-	case i == 515:
-		return _SignatureScheme_name_1
-	case i == 1025:
-		return _SignatureScheme_name_2
-	case i == 1027:
-		return _SignatureScheme_name_3
-	case i == 1281:
-		return _SignatureScheme_name_4
-	case i == 1283:
-		return _SignatureScheme_name_5
-	case i == 1537:
-		return _SignatureScheme_name_6
-	case i == 1539:
-		return _SignatureScheme_name_7
-	case 2052 <= i && i <= 2055:
-		i -= 2052
-		return _SignatureScheme_name_8[_SignatureScheme_index_8[i]:_SignatureScheme_index_8[i+1]]
-	case 2308 <= i && i <= 2310:
-		i -= 2308
-		return _SignatureScheme_name_9[_SignatureScheme_index_9[i]:_SignatureScheme_index_9[i+1]]
-	default:
-		return "SignatureScheme(" + strconv.FormatInt(int64(i), 10) + ")"
+	if str, ok := _SignatureScheme_map[i]; ok {
+		return str
 	}
+	return "SignatureScheme(" + strconv.FormatInt(int64(i), 10) + ")"
 }
 func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
