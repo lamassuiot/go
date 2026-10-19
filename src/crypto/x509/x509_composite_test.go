@@ -292,7 +292,7 @@ func mustHex(s string) []byte {
 }
 
 func buildTVCases() []tvCase {
-	return buildCompositeTVCases()
+	return append(buildCompositeTVCases(), buildCompositeECDSAEd25519TVCases()...)
 }
 
 func TestCompositeIETFVectors(t *testing.T) {
@@ -307,14 +307,18 @@ func TestCompositeIETFVectors(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParseCompositePublicKeyRaw: %v", err)
 			}
-			sk, err := tc.alg.ParseCompositePrivateKeyRaw(tc.skBytes)
-			if err != nil {
-				t.Fatalf("ParseCompositePrivateKeyRaw: %v", err)
-			}
 
 			// Verify the IETF-provided signature.
 			if !tc.alg.CompositeVerify(pk, msg, nil, tc.sig) {
 				t.Fatal("CompositeVerify failed for IETF test vector signature")
+			}
+
+			if tc.skBytes == nil {
+				return
+			}
+			sk, err := tc.alg.ParseCompositePrivateKeyRaw(tc.skBytes)
+			if err != nil {
+				t.Fatalf("ParseCompositePrivateKeyRaw: %v", err)
 			}
 
 			// Sign with the IETF private key and verify the fresh signature.
