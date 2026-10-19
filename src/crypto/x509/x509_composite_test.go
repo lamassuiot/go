@@ -550,6 +550,91 @@ func TestCompositeSignatureAlgorithmMismatch(t *testing.T) {
 	}
 }
 
+// TestCompositeRejectsParameters checks that composite public keys,
+// private keys and signature algorithm identifiers are rejected when their
+// AlgorithmIdentifier carries parameters, which must be absent.
+func TestCompositeRejectsParameters(t *testing.T) {
+	alg := x509.MLDSA44_ECDSA_P256_SHA256
+	pub, priv, err := alg.GenerateCompositeKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateCompositeKey: %v", err)
+	}
+
+	t.Run("PublicKey", func(t *testing.T) {
+		der, err := x509.MarshalPKIXPublicKey(pub)
+		if err != nil {
+			t.Fatalf("MarshalPKIXPublicKey: %v", err)
+		}
+		var spki struct {
+			Algorithm pkix.AlgorithmIdentifier
+			PublicKey asn1.BitString
+		}
+		if _, err := asn1.Unmarshal(der, &spki); err != nil {
+			t.Fatal(err)
+		}
+		spki.Algorithm.Parameters = asn1.NullRawValue
+		der, err = asn1.Marshal(spki)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := x509.ParsePKIXPublicKey(der); err == nil {
+			t.Error("ParsePKIXPublicKey accepted a composite public key with parameters")
+		}
+	})
+
+	t.Run("PrivateKey", func(t *testing.T) {
+		der, err := x509.MarshalPKCS8PrivateKey(priv)
+		if err != nil {
+			t.Fatalf("MarshalPKCS8PrivateKey: %v", err)
+		}
+		var p8 struct {
+			Version    int
+			Algo       pkix.AlgorithmIdentifier
+			PrivateKey []byte
+		}
+		if _, err := asn1.Unmarshal(der, &p8); err != nil {
+			t.Fatal(err)
+		}
+		p8.Algo.Parameters = asn1.NullRawValue
+		der, err = asn1.Marshal(p8)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := x509.ParsePKCS8PrivateKey(der); err == nil {
+			t.Error("ParsePKCS8PrivateKey accepted a composite private key with parameters")
+		}
+	})
+
+	t.Run("SignatureAlgorithm", func(t *testing.T) {
+		der, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
+			Subject: pkix.Name{CommonName: "composite parameters"},
+		}, priv)
+		if err != nil {
+			t.Fatalf("CreateCertificateRequest: %v", err)
+		}
+		var csr struct {
+			TBS                asn1.RawValue
+			SignatureAlgorithm pkix.AlgorithmIdentifier
+			SignatureValue     asn1.BitString
+		}
+		if _, err := asn1.Unmarshal(der, &csr); err != nil {
+			t.Fatal(err)
+		}
+		csr.SignatureAlgorithm.Parameters = asn1.NullRawValue
+		der, err = asn1.Marshal(csr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, err := x509.ParseCertificateRequest(der)
+		if err != nil {
+			return
+		}
+		if err := req.CheckSignature(); err == nil {
+			t.Error("CheckSignature accepted a composite signature algorithm with parameters")
+		}
+	})
+}
+
 // TestCompositeSelfSignedCert verifies that a self-signed X.509 certificate
 // can be created and verified for every composite ML-DSA+RSA algorithm.
 func TestCompositeSelfSignedCert(t *testing.T) {

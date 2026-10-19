@@ -409,6 +409,11 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		return pub, nil
 	default:
 		if alg := compositeAlgorithmByOID(oid); alg != nil {
+			// draft-ietf-lamps-pq-composite-sigs-19, Section 5.3
+			// > PARAMS ARE absent
+			if len(keyData.Algorithm.Parameters.FullBytes) != 0 {
+				return nil, fmt.Errorf("x509: %s key encoded with illegal parameters", alg.Name)
+			}
 			k, err := alg.parseCompositePublicKey([]byte(data))
 			if err != nil {
 				return nil, err

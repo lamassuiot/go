@@ -507,6 +507,13 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm
 			return UnknownSignatureAlgorithm
 		}
 	}
+	if compositeAlgorithmByOID(ai.Algorithm) != nil {
+		// draft-ietf-lamps-pq-composite-sigs-19, Section 5.3
+		// > PARAMS ARE absent
+		if len(ai.Parameters.FullBytes) != 0 {
+			return UnknownSignatureAlgorithm
+		}
+	}
 
 	if !ai.Algorithm.Equal(oidSignatureRSAPSS) {
 		for _, details := range signatureAlgorithmDetails {
