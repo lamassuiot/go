@@ -11,56 +11,117 @@ on:
         options:
           - release-branch.go1.26
           - release-branch.go1.27
+env:
+  IMAGE: ghcr.io/lamassuiot/golang-pqc
+  # Go branch to compile: the dispatch input, or the pushed branch.
+  GO_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.go_branch || github.ref_name }}
+  # Only builds of this branch are published as golang-pqc:latest.
+  LATEST_BRANCH: release-branch.go1.27
 jobs:
   test:
     name: Run all.bash
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Run tests
         run: ./all.bash
         working-directory: src
   build_docker_image:
-    name: Build and deploy Docker base image
-    runs-on: ubuntu-latest
+    name: Build Docker base image (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
     needs: test
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-26.04
+          - platform: linux/arm64
+            runner: ubuntu-26.04-arm
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-          
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
       - run: |
           echo "SHA1VER=dev-$(git rev-parse HEAD)" >> $GITHUB_ENV
-
-      - name: Resolve Go branch to compile
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            GO_BRANCH="${{ inputs.go_branch }}"
-          else
-            GO_BRANCH="${{ github.ref_name }}"
-          fi
-          echo "GO_BRANCH=${GO_BRANCH}" >> $GITHUB_ENV
-          echo "GO_TAG=$(echo "${GO_BRANCH}" | sed 's/^release-branch\.//' | tr '/' '-')" >> $GITHUB_ENV
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Login to Github Registry
-        uses: docker/login-action@v3 
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Build docker image
-        uses: docker/build-push-action@v6
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ci/go.dockerfile
+          platforms: ${{ matrix.platform }}
           build-args: |
             BASE_IMAGE=alpine:3.14
             SHA1VER=${{ env.SHA1VER }}
             VERSION=latest
             GO_BRANCH=${{ env.GO_BRANCH }}
-          tags: |
-            ghcr.io/lamassuiot/golang-pqc:latest
-            ghcr.io/lamassuiot/golang-pqc:${{ env.GO_TAG }}
-          push: true
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
 
+  publish_docker_image:
+    name: Publish multi-arch Docker base image
+    runs-on: ubuntu-26.04
+    needs: build_docker_image
+    permissions:
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Resolve image tags
+        run: |
+          GO_TAG=$(echo "${GO_BRANCH}" | sed 's/^release-branch\.//' | tr '/' '-')
+          DOCKER_TAGS="-t ${IMAGE}:${GO_TAG}"
+          if [ "${GO_BRANCH}" = "${LATEST_BRANCH}" ]; then
+            DOCKER_TAGS="${DOCKER_TAGS} -t ${IMAGE}:latest"
+          fi
+          echo "GO_TAG=${GO_TAG}" >> $GITHUB_ENV
+          echo "DOCKER_TAGS=${DOCKER_TAGS}" >> $GITHUB_ENV
+
+      - name: Login to Github Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create ${DOCKER_TAGS} \
+            $(printf "${IMAGE}@sha256:%s " *)
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect "${IMAGE}:${GO_TAG}"
