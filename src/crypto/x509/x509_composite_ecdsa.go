@@ -1,9 +1,11 @@
 // Package x509 — ECDSA adapter for the composite key types
 //
-// Mirrors x509_composite_rsa.go. Unlike RSA, both the raw private key (a
-// fixed-length big-endian scalar) and the raw public key (an uncompressed
-// SEC 1 point) have a size that depends only on the curve, so Size() is
-// exact even for a prototype with no real key. ECDSA is always the second
+// Mirrors x509_composite_rsa.go. The private key is encoded as an RFC 5915
+// ECPrivateKey carrying the curve OID and no publicKey field, and the public
+// key as an uncompressed SEC 1 point, as required by
+// draft-ietf-lamps-pq-composite-sigs-19, Section 4. Unlike RSA, both have a
+// size that depends only on the curve, so Size() is exact even for a
+// prototype with no real key. ECDSA is always the second
 // (traditional, self-delimiting) slot of a composite key, so — as with
 // RSA's Size() — none of this is ever relied on to locate a component
 // boundary; ECDSA's ASN.1 (r, s) signature is variable length, which is
@@ -17,6 +19,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	cryptorand "crypto/rand"
+	"encoding/asn1"
+	"errors"
 	"io"
 )
 
@@ -63,6 +67,57 @@ func ecScalarSize(curve elliptic.Curve) int {
 	return (curve.Params().BitSize + 7) / 8
 }
 
+// ecPrivateKeySize returns the exact size of curve's private key encoding
+// (as produced by marshalCompositeECPrivateKey).
+func ecPrivateKeySize(curve elliptic.Curve) int {
+	oid, _ := oidFromNamedCurve(curve) // curve is always one we registered
+	b, _ := asn1.Marshal(ecPrivateKey{
+		Version:       ecPrivKeyVersion,
+		PrivateKey:    make([]byte, ecScalarSize(curve)),
+		NamedCurveOID: oid,
+	})
+	return len(b)
+}
+
+// marshalCompositeECPrivateKey encodes sk as an RFC 5915 ECPrivateKey with
+// the curve OID and without the publicKey field.
+func marshalCompositeECPrivateKey(sk *ecdsa.PrivateKey) ([]byte, error) {
+	oid, ok := oidFromNamedCurve(sk.Curve)
+	if !ok {
+		return nil, errors.New("x509: unknown elliptic curve")
+	}
+	priv, err := sk.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return asn1.Marshal(ecPrivateKey{
+		Version:       ecPrivKeyVersion,
+		PrivateKey:    priv,
+		NamedCurveOID: oid,
+	})
+}
+
+// parseCompositeECPrivateKey parses an RFC 5915 ECPrivateKey for curve. The
+// curve OID may be omitted, but if present it must match curve.
+func parseCompositeECPrivateKey(curve elliptic.Curve, der []byte) (*ecdsa.PrivateKey, error) {
+	oid, ok := oidFromNamedCurve(curve)
+	if !ok {
+		return nil, errors.New("x509: unknown elliptic curve")
+	}
+	var priv ecPrivateKey
+	rest, err := asn1.Unmarshal(der, &priv)
+	if err != nil {
+		return nil, errors.New("x509: failed to parse composite ECDSA private key: " + err.Error())
+	}
+	if len(rest) != 0 {
+		return nil, errors.New("x509: trailing data after composite ECDSA private key")
+	}
+	if len(priv.NamedCurveOID) != 0 && !priv.NamedCurveOID.Equal(oid) {
+		return nil, errors.New("x509: composite ECDSA private key curve does not match algorithm")
+	}
+	return parseECPrivateKey(&oid, der)
+}
+
 // newECDSAInnerPrivateKey builds the adapter around sk. sk may be nil
 // (prototype use); signFn/bytesFn/publicFn close over it lazily and are
 // only evaluated when called, which never happens for a prototype.
@@ -82,11 +137,11 @@ func newECDSAInnerPrivateKey(curve elliptic.Curve, hash crypto.Hash, sk *ecdsa.P
 			return ecdsa.SignASN1(rnd, sk, digest)
 		},
 		bytesFn: func() []byte {
-			b, _ := sk.Bytes() // curve is always one we registered; never errors
+			b, _ := marshalCompositeECPrivateKey(sk) // curve is always one we registered; never errors
 			return b
 		},
 		publicFn: func() innerPublicKey { return newECDSAInnerPublicKey(curve, hash, &sk.PublicKey) },
-		size:     ecScalarSize(curve),
+		size:     ecPrivateKeySize(curve),
 	}
 }
 
@@ -103,10 +158,20 @@ func newECDSAPrivateKey(rnd io.Reader, curve elliptic.Curve, hash crypto.Hash) (
 	return newECDSAInnerPrivateKey(curve, hash, sk), nil
 }
 
-// newECDSAPrivateKeyFromBytes parses a raw (fixed-length big-endian scalar)
-// ECDSA private key.
+// newECDSAPrivateKeyFromBytes parses an ECDSA private key encoded as an
+// RFC 5915 ECPrivateKey.
+//
+// For compatibility with keys written by earlier versions of this package,
+// a raw fixed-length big-endian scalar is accepted too. It can't be mistaken
+// for an ECPrivateKey, which is always longer than the scalar it wraps.
 func newECDSAPrivateKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []byte) (innerPrivateKey, error) {
-	sk, err := ecdsa.ParseRawPrivateKey(curve, data)
+	var sk *ecdsa.PrivateKey
+	var err error
+	if len(data) == ecScalarSize(curve) {
+		sk, err = ecdsa.ParseRawPrivateKey(curve, data)
+	} else {
+		sk, err = parseCompositeECPrivateKey(curve, data)
+	}
 	if err != nil {
 		return nil, err
 	}

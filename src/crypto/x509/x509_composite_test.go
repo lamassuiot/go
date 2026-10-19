@@ -3,8 +3,10 @@ package x509_test
 import (
 	"bytes"
 	"crypto"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"math/big"
@@ -269,10 +271,10 @@ func TestCompositePEMRoundTrip(t *testing.T) {
 //
 //	https://github.com/lamps-wg/draft-composite-sigs/blob/main/src/testvectors.json
 //
-// Only RSA variants are included (8 total). Each tvCase provides a
-// pre-generated key pair and signature; we verify that
-// CompositeVerify accepts the signature and that a fresh signature
-// produced with the given private key also verifies.
+// RSA, ECDSA and Ed25519 variants are included (15 total). Each tvCase
+// provides a pre-generated key pair and signature; we verify that
+// CompositeVerify accepts the signature, that the private key re-encodes
+// to the same bytes, and that a fresh signature produced with it verifies.
 
 const tvMsg = "The quick brown fox jumps over the lazy dog."
 
@@ -321,6 +323,15 @@ func TestCompositeIETFVectors(t *testing.T) {
 				t.Fatalf("ParseCompositePrivateKeyRaw: %v", err)
 			}
 
+			// The private key must re-encode to the IETF wire format.
+			der, err := x509.MarshalPKCS8PrivateKey(sk)
+			if err != nil {
+				t.Fatalf("MarshalPKCS8PrivateKey: %v", err)
+			}
+			if !bytes.Equal(pkcs8PrivateKeyBytes(t, der), tc.skBytes) {
+				t.Fatal("private key encoding differs from the IETF test vector")
+			}
+
 			// Sign with the IETF private key and verify the fresh signature.
 			sig, err := tc.alg.CompositeSign(rand.Reader, sk, msg, nil)
 			if err != nil {
@@ -328,6 +339,113 @@ func TestCompositeIETFVectors(t *testing.T) {
 			}
 			if !tc.alg.CompositeVerify(pk, msg, nil, sig) {
 				t.Fatal("CompositeVerify failed for freshly generated signature")
+			}
+		})
+	}
+}
+
+// pkcs8PrivateKeyBytes returns the privateKey field of the PKCS #8 encoding der.
+func pkcs8PrivateKeyBytes(t *testing.T, der []byte) []byte {
+	t.Helper()
+	var p struct {
+		Version    int
+		Algo       pkix.AlgorithmIdentifier
+		PrivateKey []byte
+	}
+	if _, err := asn1.Unmarshal(der, &p); err != nil {
+		t.Fatalf("parsing PKCS #8: %v", err)
+	}
+	return p.PrivateKey
+}
+
+// ecdsaTVCases returns the IETF test vectors for the ML-DSA+ECDSA composites.
+func ecdsaTVCases() []tvCase {
+	var cases []tvCase
+	for _, tc := range buildCompositeECDSAEd25519TVCases() {
+		if strings.Contains(tc.alg.Name, "-ECDSA-") {
+			cases = append(cases, tc)
+		}
+	}
+	return cases
+}
+
+// TestCompositeECDSALegacyPrivateKey checks that ML-DSA+ECDSA private keys
+// written by earlier versions of this package, which encoded the ECDSA
+// component as a raw scalar instead of an RFC 5915 ECPrivateKey, can still
+// be parsed, and that they are re-encoded in the RFC 5915 form.
+func TestCompositeECDSALegacyPrivateKey(t *testing.T) {
+	msg := []byte(tvMsg)
+	for _, tc := range ecdsaTVCases() {
+		t.Run(tc.alg.Name, func(t *testing.T) {
+			seed, tradSK := tc.skBytes[:mldsa.PrivateKeySize], tc.skBytes[mldsa.PrivateKeySize:]
+			ec, err := x509.ParseECPrivateKey(tradSK)
+			if err != nil {
+				t.Fatalf("ParseECPrivateKey: %v", err)
+			}
+			scalar, err := ec.Bytes()
+			if err != nil {
+				t.Fatal(err)
+			}
+			legacy := append(bytes.Clone(seed), scalar...)
+
+			sk, err := tc.alg.ParseCompositePrivateKeyRaw(legacy)
+			if err != nil {
+				t.Fatalf("ParseCompositePrivateKeyRaw(legacy): %v", err)
+			}
+			der, err := x509.MarshalPKCS8PrivateKey(sk)
+			if err != nil {
+				t.Fatalf("MarshalPKCS8PrivateKey: %v", err)
+			}
+			if !bytes.Equal(pkcs8PrivateKeyBytes(t, der), tc.skBytes) {
+				t.Fatal("legacy private key was not re-encoded in the IETF wire format")
+			}
+
+			pk, err := tc.alg.ParseCompositePublicKeyRaw(tc.pkBytes)
+			if err != nil {
+				t.Fatalf("ParseCompositePublicKeyRaw: %v", err)
+			}
+			sig, err := tc.alg.CompositeSign(rand.Reader, sk, msg, nil)
+			if err != nil {
+				t.Fatalf("CompositeSign: %v", err)
+			}
+			if !tc.alg.CompositeVerify(pk, msg, nil, sig) {
+				t.Fatal("CompositeVerify failed for a signature from the legacy private key")
+			}
+		})
+	}
+}
+
+// TestCompositeECDSAPrivateKeyCurveMismatch checks that an ML-DSA+ECDSA
+// private key whose ECPrivateKey names a curve other than the algorithm's
+// is rejected.
+func TestCompositeECDSAPrivateKeyCurveMismatch(t *testing.T) {
+	oidP256 := asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
+	oidP384 := asn1.ObjectIdentifier{1, 3, 132, 0, 34}
+	for _, tc := range ecdsaTVCases() {
+		t.Run(tc.alg.Name, func(t *testing.T) {
+			seed, tradSK := tc.skBytes[:mldsa.PrivateKeySize], tc.skBytes[mldsa.PrivateKeySize:]
+			ec, err := x509.ParseECPrivateKey(tradSK)
+			if err != nil {
+				t.Fatalf("ParseECPrivateKey: %v", err)
+			}
+			scalar, err := ec.Bytes()
+			if err != nil {
+				t.Fatal(err)
+			}
+			wrongOID := oidP384
+			if ec.Curve.Params().Name == "P-384" {
+				wrongOID = oidP256
+			}
+			wrong, err := asn1.Marshal(struct {
+				Version       int
+				PrivateKey    []byte
+				NamedCurveOID asn1.ObjectIdentifier `asn1:"optional,explicit,tag:0"`
+			}{1, scalar, wrongOID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tc.alg.ParseCompositePrivateKeyRaw(append(bytes.Clone(seed), wrong...)); err == nil {
+				t.Fatal("ParseCompositePrivateKeyRaw accepted an ECPrivateKey for the wrong curve")
 			}
 		})
 	}
