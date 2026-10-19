@@ -1,6 +1,6 @@
 // Package x509 — composite key adapter interfaces and key types
 //
-// InnerPrivateKey / InnerPublicKey are implemented by algorithm-specific
+// innerPrivateKey / innerPublicKey are implemented by algorithm-specific
 // adapter structs (x509_composite_mldsa.go, x509_composite_rsa.go), each a
 // struct of closures over the concrete key. CompositePrivateKey /
 // CompositePublicKey never depend on a specific algorithm; they only drive
@@ -16,26 +16,26 @@ import (
 	"io"
 )
 
-// InnerPrivateKey is the adapter interface implemented by each concrete
+// innerPrivateKey is the adapter interface implemented by each concrete
 // signature algorithm (ML-DSA, RSA, ...) embedded in a composite private key.
 //
-// GenerateKey and Unmarshall don't depend on the receiver's own key
+// GenerateKey and unmarshal don't depend on the receiver's own key
 // material, only on its configuration — they spawn a fresh sibling of the
 // same kind. That's what lets CompositeAlgorithm hold a "prototype" with
 // no real key material, used only to produce a real one on demand.
-type InnerPrivateKey interface {
-	GenerateKey(rnd io.Reader) (InnerPrivateKey, error)
-	Unmarshall(data []byte) (InnerPrivateKey, error)
-	Public() InnerPublicKey
+type innerPrivateKey interface {
+	GenerateKey(rnd io.Reader) (innerPrivateKey, error)
+	unmarshal(data []byte) (innerPrivateKey, error)
+	Public() innerPublicKey
 	// Sign signs msg, which is already the composite message representative M'.
 	Sign(rnd io.Reader, msg []byte) ([]byte, error)
 	Bytes() []byte
 	Size() int
 }
 
-// InnerPublicKey is the InnerPrivateKey counterpart for public keys.
-type InnerPublicKey interface {
-	Unmarshall(data []byte) (InnerPublicKey, error)
+// innerPublicKey is the innerPrivateKey counterpart for public keys.
+type innerPublicKey interface {
+	unmarshal(data []byte) (innerPublicKey, error)
 	// Verify reports whether sig is a valid signature over msg, which is
 	// already the composite message representative M'.
 	Verify(msg, sig []byte) bool
@@ -47,8 +47,8 @@ type InnerPublicKey interface {
 // CompositePrivateKey holds the two inner private keys (one post-quantum,
 // one traditional) making up a composite key pair.
 type CompositePrivateKey struct {
-	innerSk1 InnerPrivateKey
-	innerSk2 InnerPrivateKey
+	innerSk1 innerPrivateKey
+	innerSk2 innerPrivateKey
 	oid      asn1.ObjectIdentifier // identifies the algorithm; resolved via Algorithm()
 }
 
@@ -78,11 +78,11 @@ func (sk *CompositePrivateKey) unmarshall(data []byte) (*CompositePrivateKey, er
 	if len(data) <= size {
 		return nil, errors.New("x509: composite private key data too short")
 	}
-	innerSk1, err := sk.innerSk1.Unmarshall(data[:size])
+	innerSk1, err := sk.innerSk1.unmarshal(data[:size])
 	if err != nil {
 		return nil, err
 	}
-	innerSk2, err := sk.innerSk2.Unmarshall(data[size:])
+	innerSk2, err := sk.innerSk2.unmarshal(data[size:])
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +143,8 @@ func (sk *CompositePrivateKey) Sign(rnd io.Reader, msg []byte, opts crypto.Signe
 // CompositePublicKey holds the two inner public keys (one post-quantum,
 // one traditional) making up a composite public key.
 type CompositePublicKey struct {
-	innerPk1 InnerPublicKey
-	innerPk2 InnerPublicKey
+	innerPk1 innerPublicKey
+	innerPk2 innerPublicKey
 	oid      asn1.ObjectIdentifier
 }
 
@@ -170,11 +170,11 @@ func (pk *CompositePublicKey) unmarshall(data []byte) (*CompositePublicKey, erro
 	if len(data) <= size {
 		return nil, errors.New("x509: composite public key data too short")
 	}
-	innerPk1, err := pk.innerPk1.Unmarshall(data[:size])
+	innerPk1, err := pk.innerPk1.unmarshal(data[:size])
 	if err != nil {
 		return nil, err
 	}
-	innerPk2, err := pk.innerPk2.Unmarshall(data[size:])
+	innerPk2, err := pk.innerPk2.unmarshal(data[size:])
 	if err != nil {
 		return nil, err
 	}

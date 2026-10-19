@@ -17,50 +17,50 @@ import (
 	"io"
 )
 
-// ed25519InnerPrivateKey is the InnerPrivateKey adapter for Ed25519.
+// ed25519InnerPrivateKey is the innerPrivateKey adapter for Ed25519.
 type ed25519InnerPrivateKey struct {
-	generateFn  func(io.Reader) (InnerPrivateKey, error)
-	unmarshalFn func([]byte) (InnerPrivateKey, error)
+	generateFn  func(io.Reader) (innerPrivateKey, error)
+	unmarshalFn func([]byte) (innerPrivateKey, error)
 	signFn      func(io.Reader, []byte) ([]byte, error)
 	bytesFn     func() []byte
-	publicFn    func() InnerPublicKey
+	publicFn    func() innerPublicKey
 }
 
-func (k *ed25519InnerPrivateKey) GenerateKey(rnd io.Reader) (InnerPrivateKey, error) {
+func (k *ed25519InnerPrivateKey) GenerateKey(rnd io.Reader) (innerPrivateKey, error) {
 	return k.generateFn(rnd)
 }
-func (k *ed25519InnerPrivateKey) Unmarshall(data []byte) (InnerPrivateKey, error) {
+func (k *ed25519InnerPrivateKey) unmarshal(data []byte) (innerPrivateKey, error) {
 	return k.unmarshalFn(data)
 }
 func (k *ed25519InnerPrivateKey) Sign(rnd io.Reader, msg []byte) ([]byte, error) {
 	return k.signFn(rnd, msg)
 }
 func (k *ed25519InnerPrivateKey) Bytes() []byte          { return k.bytesFn() }
-func (k *ed25519InnerPrivateKey) Public() InnerPublicKey { return k.publicFn() }
+func (k *ed25519InnerPrivateKey) Public() innerPublicKey { return k.publicFn() }
 func (k *ed25519InnerPrivateKey) Size() int              { return ed25519.SeedSize }
 
 // newEd25519InnerPrivateKey builds the adapter around sk. sk may be nil
 // (prototype use); signFn/bytesFn/publicFn close over it lazily and are
 // only evaluated when called, which never happens for a prototype.
-func newEd25519InnerPrivateKey(sk ed25519.PrivateKey) InnerPrivateKey {
+func newEd25519InnerPrivateKey(sk ed25519.PrivateKey) innerPrivateKey {
 	return &ed25519InnerPrivateKey{
-		generateFn: func(rnd io.Reader) (InnerPrivateKey, error) {
-			return NewEd25519PrivateKey(rnd)
+		generateFn: func(rnd io.Reader) (innerPrivateKey, error) {
+			return newEd25519PrivateKey(rnd)
 		},
-		unmarshalFn: func(data []byte) (InnerPrivateKey, error) {
-			return NewEd25519PrivateKeyFromBytes(data)
+		unmarshalFn: func(data []byte) (innerPrivateKey, error) {
+			return newEd25519PrivateKeyFromBytes(data)
 		},
 		signFn: func(_ io.Reader, mPrime []byte) ([]byte, error) {
 			return ed25519.Sign(sk, mPrime), nil
 		},
 		bytesFn:  func() []byte { return sk.Seed() },
-		publicFn: func() InnerPublicKey { return newEd25519InnerPublicKey(sk.Public().(ed25519.PublicKey)) },
+		publicFn: func() innerPublicKey { return newEd25519InnerPublicKey(sk.Public().(ed25519.PublicKey)) },
 	}
 }
 
-// NewEd25519PrivateKey generates a fresh Ed25519 inner private key.
+// newEd25519PrivateKey generates a fresh Ed25519 inner private key.
 // rnd is typically [crypto/rand.Reader].
-func NewEd25519PrivateKey(rnd io.Reader) (InnerPrivateKey, error) {
+func newEd25519PrivateKey(rnd io.Reader) (innerPrivateKey, error) {
 	if rnd == nil {
 		rnd = cryptorand.Reader
 	}
@@ -71,22 +71,22 @@ func NewEd25519PrivateKey(rnd io.Reader) (InnerPrivateKey, error) {
 	return newEd25519InnerPrivateKey(sk), nil
 }
 
-// NewEd25519PrivateKeyFromBytes parses a raw (32-byte seed) Ed25519 private key.
-func NewEd25519PrivateKeyFromBytes(data []byte) (InnerPrivateKey, error) {
+// newEd25519PrivateKeyFromBytes parses a raw (32-byte seed) Ed25519 private key.
+func newEd25519PrivateKeyFromBytes(data []byte) (innerPrivateKey, error) {
 	if len(data) != ed25519.SeedSize {
 		return nil, errors.New("x509: invalid composite Ed25519 private key seed length")
 	}
 	return newEd25519InnerPrivateKey(ed25519.NewKeyFromSeed(data)), nil
 }
 
-// ed25519InnerPublicKey is the InnerPublicKey adapter for Ed25519.
+// ed25519InnerPublicKey is the innerPublicKey adapter for Ed25519.
 type ed25519InnerPublicKey struct {
-	unmarshalFn func([]byte) (InnerPublicKey, error)
+	unmarshalFn func([]byte) (innerPublicKey, error)
 	verifyFn    func(msg, sig []byte) bool
 	bytesFn     func() []byte
 }
 
-func (k *ed25519InnerPublicKey) Unmarshall(data []byte) (InnerPublicKey, error) {
+func (k *ed25519InnerPublicKey) unmarshal(data []byte) (innerPublicKey, error) {
 	return k.unmarshalFn(data)
 }
 func (k *ed25519InnerPublicKey) Verify(msg, sig []byte) bool { return k.verifyFn(msg, sig) }
@@ -96,10 +96,10 @@ func (k *ed25519InnerPublicKey) SignatureSize() int          { return ed25519.Si
 
 // newEd25519InnerPublicKey builds the adapter around pk. pk may be nil
 // (prototype use); see newEd25519InnerPrivateKey.
-func newEd25519InnerPublicKey(pk ed25519.PublicKey) InnerPublicKey {
+func newEd25519InnerPublicKey(pk ed25519.PublicKey) innerPublicKey {
 	return &ed25519InnerPublicKey{
-		unmarshalFn: func(data []byte) (InnerPublicKey, error) {
-			return NewEd25519PublicKeyFromBytes(data)
+		unmarshalFn: func(data []byte) (innerPublicKey, error) {
+			return newEd25519PublicKeyFromBytes(data)
 		},
 		verifyFn: func(msg, sig []byte) bool {
 			return ed25519.Verify(pk, msg, sig)
@@ -108,8 +108,8 @@ func newEd25519InnerPublicKey(pk ed25519.PublicKey) InnerPublicKey {
 	}
 }
 
-// NewEd25519PublicKeyFromBytes parses a raw (32-byte) Ed25519 public key.
-func NewEd25519PublicKeyFromBytes(data []byte) (InnerPublicKey, error) {
+// newEd25519PublicKeyFromBytes parses a raw (32-byte) Ed25519 public key.
+func newEd25519PublicKeyFromBytes(data []byte) (innerPublicKey, error) {
 	if len(data) != ed25519.PublicKeySize {
 		return nil, errors.New("x509: invalid composite Ed25519 public key length")
 	}

@@ -4,8 +4,8 @@
 
 package x509
 
-// White-box tests for the composite adapter layer: InnerPrivateKey /
-// InnerPublicKey, the ML-DSA and RSA adapters, and CompositeAlgorithm's
+// White-box tests for the composite adapter layer: innerPrivateKey /
+// innerPublicKey, the ML-DSA and RSA adapters, and CompositeAlgorithm's
 // prototype keys. x509_composite_test.go / x509_composite_tv_test.go
 // cover the external contract.
 
@@ -19,15 +19,15 @@ import (
 )
 
 var (
-	_ InnerPrivateKey = (*mldsaInnerPrivateKey)(nil)
-	_ InnerPublicKey  = (*mldsaInnerPublicKey)(nil)
-	_ InnerPrivateKey = (*rsaInnerPrivateKey)(nil)
-	_ InnerPublicKey  = (*rsaInnerPublicKey)(nil)
+	_ innerPrivateKey = (*mldsaInnerPrivateKey)(nil)
+	_ innerPublicKey  = (*mldsaInnerPublicKey)(nil)
+	_ innerPrivateKey = (*rsaInnerPrivateKey)(nil)
+	_ innerPublicKey  = (*rsaInnerPublicKey)(nil)
 )
 
 type innerKeyCase struct {
 	name  string
-	proto InnerPrivateKey
+	proto innerPrivateKey
 }
 
 func innerKeyCases() []innerKeyCase {
@@ -72,7 +72,7 @@ func TestInnerPrivateKeyPrototypeGenerateKey(t *testing.T) {
 }
 
 // TestInnerPrivateKeyUnmarshallRoundTrip checks that a generated key
-// survives a Bytes/Unmarshall round trip (private and public) with
+// survives a Bytes/unmarshal round trip (private and public) with
 // identical encoding and signing/verification behavior.
 func TestInnerPrivateKeyUnmarshallRoundTrip(t *testing.T) {
 	for _, tc := range innerKeyCases() {
@@ -86,12 +86,12 @@ func TestInnerPrivateKeyUnmarshallRoundTrip(t *testing.T) {
 			if len(skBytes) != sk.Size() {
 				t.Fatalf("Bytes() length = %d, want Size() = %d", len(skBytes), sk.Size())
 			}
-			sk2, err := tc.proto.Unmarshall(skBytes)
+			sk2, err := tc.proto.unmarshal(skBytes)
 			if err != nil {
-				t.Fatalf("Unmarshall: %v", err)
+				t.Fatalf("unmarshal: %v", err)
 			}
 			if !bytes.Equal(skBytes, sk2.Bytes()) {
-				t.Fatal("private key wire format mismatch after Unmarshall round trip")
+				t.Fatal("private key wire format mismatch after unmarshal round trip")
 			}
 
 			pk := sk.Public()
@@ -99,24 +99,24 @@ func TestInnerPrivateKeyUnmarshallRoundTrip(t *testing.T) {
 			if len(pkBytes) != pk.Size() {
 				t.Fatalf("public Bytes() length = %d, want Size() = %d", len(pkBytes), pk.Size())
 			}
-			pk2, err := pk.Unmarshall(pkBytes)
+			pk2, err := pk.unmarshal(pkBytes)
 			if err != nil {
-				t.Fatalf("public Unmarshall: %v", err)
+				t.Fatalf("public unmarshal: %v", err)
 			}
 			if !bytes.Equal(pkBytes, pk2.Bytes()) {
-				t.Fatal("public key wire format mismatch after Unmarshall round trip")
+				t.Fatal("public key wire format mismatch after unmarshal round trip")
 			}
 
 			msg := []byte("post-unmarshal sign/verify")
 			sig, err := sk2.Sign(cryptorand.Reader, msg)
 			if err != nil {
-				t.Fatalf("Sign after Unmarshall: %v", err)
+				t.Fatalf("Sign after unmarshal: %v", err)
 			}
 			if len(sig) != pk.SignatureSize() {
 				t.Fatalf("signature length = %d, want SignatureSize() = %d", len(sig), pk.SignatureSize())
 			}
 			if !pk2.Verify(msg, sig) {
-				t.Fatal("Verify rejected a signature from the key parsed via Unmarshall")
+				t.Fatal("Verify rejected a signature from the key parsed via unmarshal")
 			}
 		})
 	}

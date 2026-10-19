@@ -16,27 +16,27 @@ import (
 	"io"
 )
 
-// rsaInnerPrivateKey is the InnerPrivateKey adapter for RSA.
+// rsaInnerPrivateKey is the innerPrivateKey adapter for RSA.
 type rsaInnerPrivateKey struct {
-	generateFn  func(io.Reader) (InnerPrivateKey, error)
-	unmarshalFn func([]byte) (InnerPrivateKey, error)
+	generateFn  func(io.Reader) (innerPrivateKey, error)
+	unmarshalFn func([]byte) (innerPrivateKey, error)
 	signFn      func(io.Reader, []byte) ([]byte, error)
 	bytesFn     func() []byte
-	publicFn    func() InnerPublicKey
+	publicFn    func() innerPublicKey
 	size        int
 }
 
-func (k *rsaInnerPrivateKey) GenerateKey(rnd io.Reader) (InnerPrivateKey, error) {
+func (k *rsaInnerPrivateKey) GenerateKey(rnd io.Reader) (innerPrivateKey, error) {
 	return k.generateFn(rnd)
 }
-func (k *rsaInnerPrivateKey) Unmarshall(data []byte) (InnerPrivateKey, error) {
+func (k *rsaInnerPrivateKey) unmarshal(data []byte) (innerPrivateKey, error) {
 	return k.unmarshalFn(data)
 }
 func (k *rsaInnerPrivateKey) Sign(rnd io.Reader, msg []byte) ([]byte, error) {
 	return k.signFn(rnd, msg)
 }
 func (k *rsaInnerPrivateKey) Bytes() []byte          { return k.bytesFn() }
-func (k *rsaInnerPrivateKey) Public() InnerPublicKey { return k.publicFn() }
+func (k *rsaInnerPrivateKey) Public() innerPublicKey { return k.publicFn() }
 func (k *rsaInnerPrivateKey) Size() int              { return k.size }
 
 // rsaHashMPrime hashes mPrime with hash, as required before RSA
@@ -52,17 +52,17 @@ func rsaHashMPrime(hash crypto.Hash, mPrime []byte) []byte {
 // only evaluated when called, which never happens for a prototype. size
 // can't be deferred the same way, so it falls back to an estimate when
 // there's no real key to measure.
-func newRSAInnerPrivateKey(bits int, hash crypto.Hash, pss bool, sk *rsa.PrivateKey) InnerPrivateKey {
+func newRSAInnerPrivateKey(bits int, hash crypto.Hash, pss bool, sk *rsa.PrivateKey) innerPrivateKey {
 	size := estimateRSAPrivateKeyDERSize(bits)
 	if sk != nil {
 		size = len(MarshalPKCS1PrivateKey(sk))
 	}
 	return &rsaInnerPrivateKey{
-		generateFn: func(rnd io.Reader) (InnerPrivateKey, error) {
-			return NewRSAPrivateKey(rnd, bits, hash, pss)
+		generateFn: func(rnd io.Reader) (innerPrivateKey, error) {
+			return newRSAPrivateKey(rnd, bits, hash, pss)
 		},
-		unmarshalFn: func(data []byte) (InnerPrivateKey, error) {
-			return NewRSAPrivateKeyFromBytes(bits, hash, pss, data)
+		unmarshalFn: func(data []byte) (innerPrivateKey, error) {
+			return newRSAPrivateKeyFromBytes(bits, hash, pss, data)
 		},
 		signFn: func(rnd io.Reader, mPrime []byte) ([]byte, error) {
 			if rnd == nil {
@@ -76,15 +76,15 @@ func newRSAInnerPrivateKey(bits int, hash crypto.Hash, pss bool, sk *rsa.Private
 			return rsa.SignPKCS1v15(rnd, sk, hash, digest)
 		},
 		bytesFn:  func() []byte { return MarshalPKCS1PrivateKey(sk) },
-		publicFn: func() InnerPublicKey { return newRSAInnerPublicKey(bits, hash, pss, &sk.PublicKey) },
+		publicFn: func() innerPublicKey { return newRSAInnerPublicKey(bits, hash, pss, &sk.PublicKey) },
 		size:     size,
 	}
 }
 
-// NewRSAPrivateKey generates a fresh RSA inner private key with the
+// newRSAPrivateKey generates a fresh RSA inner private key with the
 // given modulus size, RSA signing hash and padding mode (PSS if pss,
 // PKCS #1 v1.5 otherwise). rnd is typically [crypto/rand.Reader].
-func NewRSAPrivateKey(rnd io.Reader, bits int, hash crypto.Hash, pss bool) (InnerPrivateKey, error) {
+func newRSAPrivateKey(rnd io.Reader, bits int, hash crypto.Hash, pss bool) (innerPrivateKey, error) {
 	if rnd == nil {
 		rnd = cryptorand.Reader
 	}
@@ -95,8 +95,8 @@ func NewRSAPrivateKey(rnd io.Reader, bits int, hash crypto.Hash, pss bool) (Inne
 	return newRSAInnerPrivateKey(bits, hash, pss, sk), nil
 }
 
-// NewRSAPrivateKeyFromBytes parses a raw (PKCS #1 DER) RSA private key.
-func NewRSAPrivateKeyFromBytes(bits int, hash crypto.Hash, pss bool, data []byte) (InnerPrivateKey, error) {
+// newRSAPrivateKeyFromBytes parses a raw (PKCS #1 DER) RSA private key.
+func newRSAPrivateKeyFromBytes(bits int, hash crypto.Hash, pss bool, data []byte) (innerPrivateKey, error) {
 	sk, err := ParsePKCS1PrivateKey(data)
 	if err != nil {
 		return nil, err
@@ -104,16 +104,16 @@ func NewRSAPrivateKeyFromBytes(bits int, hash crypto.Hash, pss bool, data []byte
 	return newRSAInnerPrivateKey(bits, hash, pss, sk), nil
 }
 
-// rsaInnerPublicKey is the InnerPublicKey adapter for RSA.
+// rsaInnerPublicKey is the innerPublicKey adapter for RSA.
 type rsaInnerPublicKey struct {
-	unmarshalFn   func([]byte) (InnerPublicKey, error)
+	unmarshalFn   func([]byte) (innerPublicKey, error)
 	verifyFn      func(msg, sig []byte) bool
 	bytesFn       func() []byte
 	size          int
 	signatureSize int
 }
 
-func (k *rsaInnerPublicKey) Unmarshall(data []byte) (InnerPublicKey, error) {
+func (k *rsaInnerPublicKey) unmarshal(data []byte) (innerPublicKey, error) {
 	return k.unmarshalFn(data)
 }
 func (k *rsaInnerPublicKey) Verify(msg, sig []byte) bool { return k.verifyFn(msg, sig) }
@@ -123,7 +123,7 @@ func (k *rsaInnerPublicKey) SignatureSize() int          { return k.signatureSiz
 
 // newRSAInnerPublicKey builds the adapter around pk. pk may be nil
 // (prototype use); see newRSAInnerPrivateKey.
-func newRSAInnerPublicKey(bits int, hash crypto.Hash, pss bool, pk *rsa.PublicKey) InnerPublicKey {
+func newRSAInnerPublicKey(bits int, hash crypto.Hash, pss bool, pk *rsa.PublicKey) innerPublicKey {
 	size := estimateRSAPublicKeyDERSize(bits)
 	signatureSize := bits / 8
 	if pk != nil {
@@ -131,8 +131,8 @@ func newRSAInnerPublicKey(bits int, hash crypto.Hash, pss bool, pk *rsa.PublicKe
 		signatureSize = pk.Size()
 	}
 	return &rsaInnerPublicKey{
-		unmarshalFn: func(data []byte) (InnerPublicKey, error) {
-			return NewRSAPublicKeyFromBytes(bits, hash, pss, data)
+		unmarshalFn: func(data []byte) (innerPublicKey, error) {
+			return newRSAPublicKeyFromBytes(bits, hash, pss, data)
 		},
 		verifyFn: func(msg, sig []byte) bool {
 			digest := rsaHashMPrime(hash, msg)
@@ -148,8 +148,8 @@ func newRSAInnerPublicKey(bits int, hash crypto.Hash, pss bool, pk *rsa.PublicKe
 	}
 }
 
-// NewRSAPublicKeyFromBytes parses a raw (PKCS #1 DER) RSA public key.
-func NewRSAPublicKeyFromBytes(bits int, hash crypto.Hash, pss bool, data []byte) (InnerPublicKey, error) {
+// newRSAPublicKeyFromBytes parses a raw (PKCS #1 DER) RSA public key.
+func newRSAPublicKeyFromBytes(bits int, hash crypto.Hash, pss bool, data []byte) (innerPublicKey, error) {
 	pk, err := ParsePKCS1PublicKey(data)
 	if err != nil {
 		return nil, err

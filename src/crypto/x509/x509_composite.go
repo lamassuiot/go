@@ -35,7 +35,7 @@ type CompositeAlgorithm struct {
 	buildMPrime func(msg, ctx []byte) ([]byte, error)
 
 	// privateKey and publicKey are prototypes: their inner keys hold no
-	// real key material and are only ever asked to GenerateKey/Unmarshall.
+	// real key material and are only ever asked to GenerateKey/unmarshal.
 	privateKey *CompositePrivateKey
 	publicKey  *CompositePublicKey
 
@@ -101,7 +101,7 @@ func newBuildMPrime(isMLDSA bool, hash crypto.Hash, label string) func(msg, ctx 
 // changing anything else in this file.
 func newCompositeAlgorithm(
 	name, label string, oid asn1.ObjectIdentifier, sigAlgo SignatureAlgorithm, pubKeyAlgo PublicKeyAlgorithm, isMLDSA bool, phHash crypto.Hash,
-	privProto1, privProto2 InnerPrivateKey, pubProto1, pubProto2 InnerPublicKey,
+	privProto1, privProto2 innerPrivateKey, pubProto1, pubProto2 innerPublicKey,
 ) *CompositeAlgorithm {
 	a := &CompositeAlgorithm{
 		Name:        name,
