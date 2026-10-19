@@ -125,6 +125,11 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 
 	default:
 		if alg := compositeAlgorithmByOID(privKey.Algo.Algorithm); alg != nil {
+			// draft-ietf-lamps-pq-composite-sigs-19, Section 5.3
+			// > its parameters field MUST be absent.
+			if l := len(privKey.Algo.Parameters.FullBytes); l != 0 {
+				return nil, fmt.Errorf("x509: invalid %s private key parameters", alg.Name)
+			}
 			k, err := alg.parseCompositePrivateKey(privKey.PrivateKey)
 			if err != nil {
 				return nil, err
