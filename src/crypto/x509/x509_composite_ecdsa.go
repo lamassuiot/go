@@ -20,27 +20,27 @@ import (
 	"io"
 )
 
-// ecdsaInnerPrivateKey is the InnerPrivateKey adapter for ECDSA.
+// ecdsaInnerPrivateKey is the innerPrivateKey adapter for ECDSA.
 type ecdsaInnerPrivateKey struct {
-	generateFn  func(io.Reader) (InnerPrivateKey, error)
-	unmarshalFn func([]byte) (InnerPrivateKey, error)
+	generateFn  func(io.Reader) (innerPrivateKey, error)
+	unmarshalFn func([]byte) (innerPrivateKey, error)
 	signFn      func(io.Reader, []byte) ([]byte, error)
 	bytesFn     func() []byte
-	publicFn    func() InnerPublicKey
+	publicFn    func() innerPublicKey
 	size        int
 }
 
-func (k *ecdsaInnerPrivateKey) GenerateKey(rnd io.Reader) (InnerPrivateKey, error) {
+func (k *ecdsaInnerPrivateKey) GenerateKey(rnd io.Reader) (innerPrivateKey, error) {
 	return k.generateFn(rnd)
 }
-func (k *ecdsaInnerPrivateKey) Unmarshall(data []byte) (InnerPrivateKey, error) {
+func (k *ecdsaInnerPrivateKey) unmarshal(data []byte) (innerPrivateKey, error) {
 	return k.unmarshalFn(data)
 }
 func (k *ecdsaInnerPrivateKey) Sign(rnd io.Reader, msg []byte) ([]byte, error) {
 	return k.signFn(rnd, msg)
 }
 func (k *ecdsaInnerPrivateKey) Bytes() []byte          { return k.bytesFn() }
-func (k *ecdsaInnerPrivateKey) Public() InnerPublicKey { return k.publicFn() }
+func (k *ecdsaInnerPrivateKey) Public() innerPublicKey { return k.publicFn() }
 func (k *ecdsaInnerPrivateKey) Size() int              { return k.size }
 
 // ecdsaHashMPrime hashes mPrime with hash, as required before ECDSA
@@ -66,13 +66,13 @@ func ecScalarSize(curve elliptic.Curve) int {
 // newECDSAInnerPrivateKey builds the adapter around sk. sk may be nil
 // (prototype use); signFn/bytesFn/publicFn close over it lazily and are
 // only evaluated when called, which never happens for a prototype.
-func newECDSAInnerPrivateKey(curve elliptic.Curve, hash crypto.Hash, sk *ecdsa.PrivateKey) InnerPrivateKey {
+func newECDSAInnerPrivateKey(curve elliptic.Curve, hash crypto.Hash, sk *ecdsa.PrivateKey) innerPrivateKey {
 	return &ecdsaInnerPrivateKey{
-		generateFn: func(rnd io.Reader) (InnerPrivateKey, error) {
-			return NewECDSAPrivateKey(rnd, curve, hash)
+		generateFn: func(rnd io.Reader) (innerPrivateKey, error) {
+			return newECDSAPrivateKey(rnd, curve, hash)
 		},
-		unmarshalFn: func(data []byte) (InnerPrivateKey, error) {
-			return NewECDSAPrivateKeyFromBytes(curve, hash, data)
+		unmarshalFn: func(data []byte) (innerPrivateKey, error) {
+			return newECDSAPrivateKeyFromBytes(curve, hash, data)
 		},
 		signFn: func(rnd io.Reader, mPrime []byte) ([]byte, error) {
 			if rnd == nil {
@@ -85,14 +85,14 @@ func newECDSAInnerPrivateKey(curve elliptic.Curve, hash crypto.Hash, sk *ecdsa.P
 			b, _ := sk.Bytes() // curve is always one we registered; never errors
 			return b
 		},
-		publicFn: func() InnerPublicKey { return newECDSAInnerPublicKey(curve, hash, &sk.PublicKey) },
+		publicFn: func() innerPublicKey { return newECDSAInnerPublicKey(curve, hash, &sk.PublicKey) },
 		size:     ecScalarSize(curve),
 	}
 }
 
-// NewECDSAPrivateKey generates a fresh ECDSA inner private key on curve.
+// newECDSAPrivateKey generates a fresh ECDSA inner private key on curve.
 // rnd is typically [crypto/rand.Reader].
-func NewECDSAPrivateKey(rnd io.Reader, curve elliptic.Curve, hash crypto.Hash) (InnerPrivateKey, error) {
+func newECDSAPrivateKey(rnd io.Reader, curve elliptic.Curve, hash crypto.Hash) (innerPrivateKey, error) {
 	if rnd == nil {
 		rnd = cryptorand.Reader
 	}
@@ -103,9 +103,9 @@ func NewECDSAPrivateKey(rnd io.Reader, curve elliptic.Curve, hash crypto.Hash) (
 	return newECDSAInnerPrivateKey(curve, hash, sk), nil
 }
 
-// NewECDSAPrivateKeyFromBytes parses a raw (fixed-length big-endian scalar)
+// newECDSAPrivateKeyFromBytes parses a raw (fixed-length big-endian scalar)
 // ECDSA private key.
-func NewECDSAPrivateKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []byte) (InnerPrivateKey, error) {
+func newECDSAPrivateKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []byte) (innerPrivateKey, error) {
 	sk, err := ecdsa.ParseRawPrivateKey(curve, data)
 	if err != nil {
 		return nil, err
@@ -113,16 +113,16 @@ func NewECDSAPrivateKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []
 	return newECDSAInnerPrivateKey(curve, hash, sk), nil
 }
 
-// ecdsaInnerPublicKey is the InnerPublicKey adapter for ECDSA.
+// ecdsaInnerPublicKey is the innerPublicKey adapter for ECDSA.
 type ecdsaInnerPublicKey struct {
-	unmarshalFn   func([]byte) (InnerPublicKey, error)
+	unmarshalFn   func([]byte) (innerPublicKey, error)
 	verifyFn      func(msg, sig []byte) bool
 	bytesFn       func() []byte
 	size          int
 	signatureSize int
 }
 
-func (k *ecdsaInnerPublicKey) Unmarshall(data []byte) (InnerPublicKey, error) {
+func (k *ecdsaInnerPublicKey) unmarshal(data []byte) (innerPublicKey, error) {
 	return k.unmarshalFn(data)
 }
 func (k *ecdsaInnerPublicKey) Verify(msg, sig []byte) bool { return k.verifyFn(msg, sig) }
@@ -132,10 +132,10 @@ func (k *ecdsaInnerPublicKey) SignatureSize() int          { return k.signatureS
 
 // newECDSAInnerPublicKey builds the adapter around pk. pk may be nil
 // (prototype use); see newECDSAInnerPrivateKey.
-func newECDSAInnerPublicKey(curve elliptic.Curve, hash crypto.Hash, pk *ecdsa.PublicKey) InnerPublicKey {
+func newECDSAInnerPublicKey(curve elliptic.Curve, hash crypto.Hash, pk *ecdsa.PublicKey) innerPublicKey {
 	return &ecdsaInnerPublicKey{
-		unmarshalFn: func(data []byte) (InnerPublicKey, error) {
-			return NewECDSAPublicKeyFromBytes(curve, hash, data)
+		unmarshalFn: func(data []byte) (innerPublicKey, error) {
+			return newECDSAPublicKeyFromBytes(curve, hash, data)
 		},
 		verifyFn: func(msg, sig []byte) bool {
 			digest := ecdsaHashMPrime(hash, msg)
@@ -152,9 +152,9 @@ func newECDSAInnerPublicKey(curve elliptic.Curve, hash crypto.Hash, pk *ecdsa.Pu
 	}
 }
 
-// NewECDSAPublicKeyFromBytes parses a raw (uncompressed SEC 1 point) ECDSA
+// newECDSAPublicKeyFromBytes parses a raw (uncompressed SEC 1 point) ECDSA
 // public key.
-func NewECDSAPublicKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []byte) (InnerPublicKey, error) {
+func newECDSAPublicKeyFromBytes(curve elliptic.Curve, hash crypto.Hash, data []byte) (innerPublicKey, error) {
 	pk, err := ecdsa.ParseUncompressedPublicKey(curve, data)
 	if err != nil {
 		return nil, err
