@@ -7,11 +7,15 @@
 FROM golang:1.26 AS builder
 
 ARG GO_BRANCH=release-branch.go1.27
+# Commit to build. If empty, the tip of GO_BRANCH is built.
+ARG GO_COMMIT=
 
 RUN apt-get update -y && apt-get install -y git
 
-WORKDIR /lamassu-go
-RUN git clone -b ${GO_BRANCH} --single-branch --depth 1 https://github.com/lamassuiot/go.git
+WORKDIR /lamassu-go/go
+RUN git init -q . && \
+    git fetch --depth 1 https://github.com/lamassuiot/go.git "${GO_COMMIT:-refs/heads/${GO_BRANCH}}" && \
+    git checkout -q --detach FETCH_HEAD
 
 WORKDIR /lamassu-go/go/src
 RUN ./make.bash

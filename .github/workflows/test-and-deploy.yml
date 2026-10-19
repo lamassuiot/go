@@ -18,19 +18,46 @@ env:
   # Only builds of this branch are published as golang-pqc:latest.
   LATEST_BRANCH: release-branch.go1.27
 jobs:
+  resolve_source:
+    name: Resolve Go commit
+    runs-on: ubuntu-26.04
+    outputs:
+      go_commit: ${{ steps.resolve.outputs.go_commit }}
+    steps:
+      # Pin one commit for the whole run, so that the tests and every
+      # platform image are built from the same source even if the branch
+      # moves meanwhile.
+      - name: Resolve Go commit
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            GO_COMMIT=$(git ls-remote "https://github.com/${{ github.repository }}.git" "refs/heads/${GO_BRANCH}" | cut -f1)
+          else
+            GO_COMMIT="${{ github.sha }}"
+          fi
+          if [ -z "${GO_COMMIT}" ]; then
+            echo "::error::could not resolve ${GO_BRANCH}"
+            exit 1
+          fi
+          echo "go_commit=${GO_COMMIT}" >> "$GITHUB_OUTPUT"
   test:
     name: Run all.bash
     runs-on: ubuntu-26.04
+    needs: resolve_source
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.resolve_source.outputs.go_commit }}
       - name: Run tests
         run: ./all.bash
         working-directory: src
   build_docker_image:
     name: Build Docker base image (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
-    needs: test
+    needs: [resolve_source, test]
+    env:
+      GO_COMMIT: ${{ needs.resolve_source.outputs.go_commit }}
     permissions:
       contents: read
       packages: write
@@ -46,7 +73,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - run: |
-          echo "SHA1VER=dev-$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "SHA1VER=dev-${GO_COMMIT}" >> $GITHUB_ENV
           platform="${{ matrix.platform }}"
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
@@ -70,6 +97,7 @@ jobs:
             SHA1VER=${{ env.SHA1VER }}
             VERSION=latest
             GO_BRANCH=${{ env.GO_BRANCH }}
+            GO_COMMIT=${{ env.GO_COMMIT }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
