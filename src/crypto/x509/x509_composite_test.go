@@ -490,6 +490,66 @@ func TestCompositeParseErrorReturnsNilKey(t *testing.T) {
 	}
 }
 
+// TestCompositeSignatureAlgorithmMismatch checks that a composite key is only
+// accepted under its own composite algorithm, not under another one of the
+// same or a different family, both when verifying and when signing.
+func TestCompositeSignatureAlgorithmMismatch(t *testing.T) {
+	keyAlg := x509.MLDSA44_RSA2048_PSS_SHA256
+	pub, priv, err := keyAlg.GenerateCompositeKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateCompositeKey: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "composite mismatch"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, pub, priv)
+	if err != nil {
+		t.Fatalf("CreateCertificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("ParseCertificate: %v", err)
+	}
+
+	msg := []byte("composite signature algorithm mismatch")
+	sig, err := keyAlg.CompositeSign(rand.Reader, priv, msg, nil)
+	if err != nil {
+		t.Fatalf("CompositeSign: %v", err)
+	}
+	if err := cert.CheckSignature(cert.SignatureAlgorithm, msg, sig); err != nil {
+		t.Fatalf("CheckSignature rejected the key's own algorithm: %v", err)
+	}
+
+	for _, tc := range []struct {
+		alg     *x509.CompositeAlgorithm
+		sigAlgo x509.SignatureAlgorithm
+	}{
+		{x509.MLDSA44_RSA2048_PKCS15_SHA256, x509.CompositeMLDSA44RSA2048PKCS15SHA256}, // same family
+		{x509.MLDSA44_ECDSA_P256_SHA256, x509.CompositeMLDSA44ECDSAP256SHA256},         // different family
+	} {
+		t.Run(tc.alg.Name, func(t *testing.T) {
+			// Signed with keyAlg's components, but over tc.alg's M'.
+			sig, err := tc.alg.CompositeSign(rand.Reader, priv, msg, nil)
+			if err != nil {
+				t.Fatalf("CompositeSign: %v", err)
+			}
+			if err := cert.CheckSignature(tc.sigAlgo, msg, sig); err == nil {
+				t.Errorf("CheckSignature accepted a %s key signing as %s", keyAlg.Name, tc.alg.Name)
+			}
+
+			tmpl := *template
+			tmpl.SignatureAlgorithm = tc.sigAlgo
+			_, err = x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, pub, priv)
+			if err == nil || !strings.Contains(err.Error(), "does not match") {
+				t.Errorf("CreateCertificate with %s for a %s key: got %v, want algorithm mismatch error", tc.alg.Name, keyAlg.Name, err)
+			}
+		})
+	}
+}
+
 // TestCompositeSelfSignedCert verifies that a self-signed X.509 certificate
 // can be created and verified for every composite ML-DSA+RSA algorithm.
 func TestCompositeSelfSignedCert(t *testing.T) {

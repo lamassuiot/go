@@ -1122,6 +1122,14 @@ func signatureMLDSAParametersMismatchError(expectedSigAlgo SignatureAlgorithm, p
 	return fmt.Errorf("x509: signature algorithm specifies an ML-DSA public key with %s parameters, but have a public key with %s parameters", expectedSigAlgo, pubKey.Parameters())
 }
 
+func signatureCompositeAlgorithmMismatchError(expected *CompositeAlgorithm, pubKey *CompositePublicKey) error {
+	have := pubKey.oid.String()
+	if alg := pubKey.Algorithm(); alg != nil {
+		have = alg.Name
+	}
+	return fmt.Errorf("x509: signature algorithm specifies a %s public key, but have a %s public key", expected.Name, have)
+}
+
 // checkSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
 func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey, allowSHA1 bool) (err error) {
@@ -1226,8 +1234,10 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		if compAlg == nil {
 			return ErrUnsupportedAlgorithm
 		}
-		if pubKeyAlgo != compAlg.pubKeyAlgo {
-			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		// A composite key belongs to exactly one composite algorithm, so the
+		// signature algorithm must be that one, not just one of the same family.
+		if !pub.oid.Equal(compAlg.OID) {
+			return signatureCompositeAlgorithmMismatchError(compAlg, pub)
 		}
 		if !compAlg.CompositeVerify(pub, signed, nil, signature) {
 			return fmt.Errorf("x509: composite %s verification failure", compAlg.pubKeyAlgo)
@@ -1814,6 +1824,9 @@ func signingParamsForPublicKey(pub crypto.PublicKey, sigAlgo SignatureAlgorithm)
 			}
 			if pubType == MLDSA && sigAlgo != defaultAlgo {
 				return 0, ai, errors.New("x509: requested SignatureAlgorithm does not match ML-DSA parameters")
+			}
+			if isCompositePublicKeyAlgorithm(pubType) && sigAlgo != defaultAlgo {
+				return 0, ai, errors.New("x509: requested SignatureAlgorithm does not match composite key algorithm")
 			}
 			if details.hash == crypto.MD5 {
 				return 0, ai, errors.New("x509: signing with MD5 is not supported")
