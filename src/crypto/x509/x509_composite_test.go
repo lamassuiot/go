@@ -9,6 +9,7 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -605,7 +606,7 @@ func TestCompositeRejectsParameters(t *testing.T) {
 		}
 	})
 
-	t.Run("SignatureAlgorithm", func(t *testing.T) {
+	t.Run("CSRSignatureAlgorithm", func(t *testing.T) {
 		der, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
 			Subject: pkix.Name{CommonName: "composite parameters"},
 		}, priv)
@@ -627,10 +628,79 @@ func TestCompositeRejectsParameters(t *testing.T) {
 		}
 		req, err := x509.ParseCertificateRequest(der)
 		if err != nil {
-			return
+			t.Fatalf("ParseCertificateRequest: %v", err)
 		}
 		if err := req.CheckSignature(); err == nil {
 			t.Error("CheckSignature accepted a composite signature algorithm with parameters")
+		}
+	})
+
+	t.Run("CertificateSignatureAlgorithm", func(t *testing.T) {
+		template := &x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			Subject:      pkix.Name{CommonName: "composite parameters"},
+			NotBefore:    time.Now().Add(-time.Hour),
+			NotAfter:     time.Now().Add(time.Hour),
+		}
+		der, err := x509.CreateCertificate(rand.Reader, template, template, pub, priv)
+		if err != nil {
+			t.Fatalf("CreateCertificate: %v", err)
+		}
+		var cert struct {
+			TBS                asn1.RawValue
+			SignatureAlgorithm pkix.AlgorithmIdentifier
+			SignatureValue     asn1.BitString
+		}
+		if _, err := asn1.Unmarshal(der, &cert); err != nil {
+			t.Fatal(err)
+		}
+
+		// The signature AlgorithmIdentifier appears both in the TBS and
+		// after it, and the two must match. In the TBS, the signature field
+		// precedes the SPKI, whose identifier has the same encoding.
+		oldAI, err := asn1.Marshal(cert.SignatureAlgorithm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cert.SignatureAlgorithm.Parameters = asn1.NullRawValue
+		newAI, err := asn1.Marshal(cert.SignatureAlgorithm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Contains(cert.TBS.Bytes, oldAI) {
+			t.Fatal("signature AlgorithmIdentifier not found in TBS")
+		}
+		cert.TBS = asn1.RawValue{
+			Tag:        asn1.TagSequence,
+			IsCompound: true,
+			Bytes:      bytes.Replace(cert.TBS.Bytes, oldAI, newAI, 1),
+		}
+		tbs, err := asn1.Marshal(cert.TBS)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Re-sign the modified TBS, so that only the parameters can make
+		// the signature check fail.
+		sig, err := alg.CompositeSign(rand.Reader, priv, tbs, nil)
+		if err != nil {
+			t.Fatalf("CompositeSign: %v", err)
+		}
+		cert.SignatureValue = asn1.BitString{Bytes: sig, BitLength: 8 * len(sig)}
+		der, err = asn1.Marshal(cert)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		c, err := x509.ParseCertificate(der)
+		if err != nil {
+			t.Fatalf("ParseCertificate: %v", err)
+		}
+		if c.SignatureAlgorithm != x509.UnknownSignatureAlgorithm {
+			t.Errorf("SignatureAlgorithm = %v, want UnknownSignatureAlgorithm", c.SignatureAlgorithm)
+		}
+		err = c.CheckSignature(c.SignatureAlgorithm, c.RawTBSCertificate, c.Signature)
+		if !errors.Is(err, x509.ErrUnsupportedAlgorithm) {
+			t.Errorf("CheckSignature: got %v, want ErrUnsupportedAlgorithm", err)
 		}
 	})
 }
