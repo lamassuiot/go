@@ -409,7 +409,11 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		return pub, nil
 	default:
 		if alg := compositeAlgorithmByOID(oid); alg != nil {
-			return alg.parseCompositePublicKey([]byte(data))
+			k, err := alg.parseCompositePublicKey([]byte(data))
+			if err != nil {
+				return nil, err
+			}
+			return k, nil
 		}
 		if scheme := circlPki.SchemeByOid(oid); scheme != nil {
 			if len(keyData.Algorithm.Parameters.FullBytes) != 0 {

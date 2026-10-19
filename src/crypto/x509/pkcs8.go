@@ -125,7 +125,11 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 
 	default:
 		if alg := compositeAlgorithmByOID(privKey.Algo.Algorithm); alg != nil {
-			return alg.parseCompositePrivateKey(privKey.PrivateKey)
+			k, err := alg.parseCompositePrivateKey(privKey.PrivateKey)
+			if err != nil {
+				return nil, err
+			}
+			return k, nil
 		}
 		scheme := circlPki.SchemeByOid(privKey.Algo.Algorithm)
 		if scheme == nil {

@@ -451,6 +451,45 @@ func TestCompositeECDSAPrivateKeyCurveMismatch(t *testing.T) {
 	}
 }
 
+// TestCompositeParseErrorReturnsNilKey checks that when parsing a composite
+// key fails, the returned key is a nil interface rather than a nil
+// *CompositePrivateKey or *CompositePublicKey wrapped in a non-nil one.
+func TestCompositeParseErrorReturnsNilKey(t *testing.T) {
+	alg := x509.MLDSA44_ECDSA_P256_SHA256
+	short := []byte{0x01, 0x02, 0x03}
+
+	pkcs8DER, err := asn1.Marshal(struct {
+		Version    int
+		Algo       pkix.AlgorithmIdentifier
+		PrivateKey []byte
+	}{0, pkix.AlgorithmIdentifier{Algorithm: alg.OID}, short})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := x509.ParsePKCS8PrivateKey(pkcs8DER)
+	if err == nil {
+		t.Fatal("ParsePKCS8PrivateKey accepted a truncated composite private key")
+	}
+	if key != nil {
+		t.Errorf("ParsePKCS8PrivateKey returned non-nil key %#v with error", key)
+	}
+
+	spkiDER, err := asn1.Marshal(struct {
+		Algorithm pkix.AlgorithmIdentifier
+		PublicKey asn1.BitString
+	}{pkix.AlgorithmIdentifier{Algorithm: alg.OID}, asn1.BitString{Bytes: short, BitLength: 8 * len(short)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, err := x509.ParsePKIXPublicKey(spkiDER)
+	if err == nil {
+		t.Fatal("ParsePKIXPublicKey accepted a truncated composite public key")
+	}
+	if pub != nil {
+		t.Errorf("ParsePKIXPublicKey returned non-nil key %#v with error", pub)
+	}
+}
+
 // TestCompositeSelfSignedCert verifies that a self-signed X.509 certificate
 // can be created and verified for every composite ML-DSA+RSA algorithm.
 func TestCompositeSelfSignedCert(t *testing.T) {
