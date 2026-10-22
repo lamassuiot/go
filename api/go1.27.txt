@@ -595,3 +595,15 @@ pkg crypto/x509, var MLDSA87_ECDSA_P384_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA87_ECDSA_P521_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA44_Ed25519_SHA512 *CompositeAlgorithm #000000
 pkg crypto/x509, var MLDSA65_Ed25519_SHA512 *CompositeAlgorithm #000000
+pkg crypto/x509, func CreateBoundCertificate(io.Reader, *Certificate, *Certificate, []uint8, interface{}, interface{}) ([]uint8, error) #000000
+pkg crypto/x509, func CreateRelatedCertRequestAttribute(io.Reader, *Certificate, crypto.Signer, time.Time, []string) (asn1.RawValue, error) #000000
+pkg crypto/x509, func ParseRelatedCertRequestAttribute(*CertificateRequest) (*RelatedCertRequestAttribute, error) #000000
+pkg crypto/x509, func VerifyRelatedCertificate(*Certificate, *Certificate) error #000000
+pkg crypto/x509, method (*RelatedCertRequestAttribute) Verify(*Certificate, time.Time, time.Duration) error #000000
+pkg crypto/x509, type CertificateRequest struct, ExtraAttributes []asn1.RawValue #000000
+pkg crypto/x509, type RelatedCertRequestAttribute struct #000000
+pkg crypto/x509, type RelatedCertRequestAttribute struct, LocationInfo []string #000000
+pkg crypto/x509, type RelatedCertRequestAttribute struct, RawIssuer []uint8 #000000
+pkg crypto/x509, type RelatedCertRequestAttribute struct, RequestTime time.Time #000000
+pkg crypto/x509, type RelatedCertRequestAttribute struct, SerialNumber *big.Int #000000
+pkg crypto/x509, type RelatedCertRequestAttribute struct, Signature []uint8 #000000

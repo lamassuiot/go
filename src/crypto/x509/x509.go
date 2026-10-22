@@ -2210,6 +2210,13 @@ type CertificateRequest struct {
 	// see Extensions instead.
 	ExtraExtensions []pkix.Extension
 
+	// ExtraAttributes contains attributes (RFC 2986) to be copied, raw, into
+	// any CSR marshaled by CreateCertificateRequest. The DER encoding of each
+	// attribute must be set in FullBytes.
+	//
+	// The ExtraAttributes field is not populated by ParseCertificateRequest.
+	ExtraAttributes []asn1.RawValue
+
 	// Subject Alternate Name values.
 	DNSNames       []string
 	EmailAddresses []string
@@ -2325,6 +2332,7 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 //   - IPAddresses
 //   - URIs
 //   - ExtraExtensions
+//   - ExtraAttributes
 //   - Attributes (deprecated)
 //
 // priv is the private key to sign the CSR with, and the corresponding public
@@ -2438,6 +2446,7 @@ func CreateCertificateRequest(rand io.Reader, template *CertificateRequest, priv
 
 		rawAttributes = append(rawAttributes, rawValue)
 	}
+	rawAttributes = append(rawAttributes, template.ExtraAttributes...)
 
 	asn1Subject := template.RawSubject
 	if len(asn1Subject) == 0 {
