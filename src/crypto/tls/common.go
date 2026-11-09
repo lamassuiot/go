@@ -1818,6 +1818,11 @@ func isDisabledSignatureAlgorithm(version uint16, s SignatureScheme, isCert bool
 		}
 	}
 
+	// Only allowed in signature_algorithms_cert.
+	if !isCert && isCompositePKCS15SignatureScheme(s) {
+		return true
+	}
+
 	// For the _cert extension we include all algorithms, including SHA-1 and
 	// PKCS#1 v1.5, because it's more likely that something on our side will be
 	// willing to accept a *-with-SHA1 certificate (e.g. with a custom

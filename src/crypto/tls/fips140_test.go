@@ -332,6 +332,21 @@ func TestFIPSServerSignatureAndHash(t *testing.T) {
 				serverConfig.MaxVersion = VersionTLS12
 			}
 
+			// Never usable for handshake signatures, FIPS or not.
+			if isCompositePKCS15SignatureScheme(sigHash) {
+				runWithFIPSDisabled(t, func(t *testing.T) {
+					if clientErr, _ := fipsHandshake(t, testConfigFIPS140, serverConfig); clientErr == nil {
+						t.Fatalf("expected handshake with %v to fail, but it succeeded", sigHash)
+					}
+				})
+				runWithFIPSEnabled(t, func(t *testing.T) {
+					if clientErr, _ := fipsHandshake(t, testConfigFIPS140, serverConfig); clientErr == nil {
+						t.Fatalf("expected handshake with %v to fail, but it succeeded", sigHash)
+					}
+				})
+				return
+			}
+
 			runWithFIPSDisabled(t, func(t *testing.T) {
 				clientErr, serverErr := fipsHandshake(t, testConfigFIPS140, serverConfig)
 				if clientErr != nil {

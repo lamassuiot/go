@@ -70,6 +70,19 @@ func init() {
 	}
 }
 
+// isCompositePKCS15SignatureScheme reports whether s is a composite
+// ML-DSA+RSA-PKCS#1 v1.5 scheme, which is only allowed in
+// signature_algorithms_cert, never for handshake signatures.
+func isCompositePKCS15SignatureScheme(s SignatureScheme) bool {
+	switch s {
+	case CompositeMLDSA44RSA2048PKCS15SHA256,
+		CompositeMLDSA65RSA3072PKCS15SHA512,
+		CompositeMLDSA65RSA4096PKCS15SHA512:
+		return true
+	}
+	return false
+}
+
 // isCompositeSignatureScheme reports whether s identifies a composite
 // ML-DSA+RSA algorithm.
 func isCompositeSignatureScheme(s SignatureScheme) bool {

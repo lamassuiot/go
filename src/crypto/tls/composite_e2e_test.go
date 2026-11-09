@@ -147,6 +147,59 @@ func TestCompositeSignatureSchemesExcludedFromTLS12(t *testing.T) {
 	}
 }
 
+// TestCompositePKCS15OnlyInSignatureAlgorithmsCert checks that composite
+// PKCS#1 v1.5 schemes are advertised only in signature_algorithms_cert.
+func TestCompositePKCS15OnlyInSignatureAlgorithmsCert(t *testing.T) {
+	skipFIPS(t)
+
+	sigAlgs := supportedSignatureAlgorithms(VersionTLS13, VersionTLS13)
+	certAlgs := supportedSignatureAlgorithmsCert(VersionTLS13, VersionTLS13)
+	for _, e := range compositeSignatureSchemes {
+		pkcs15 := isCompositePKCS15SignatureScheme(e.scheme)
+		if got := isSupportedSignatureAlgorithm(e.scheme, sigAlgs); got == pkcs15 {
+			t.Errorf("%v in signature_algorithms = %v, want %v", e.scheme, got, !pkcs15)
+		}
+		if !isSupportedSignatureAlgorithm(e.scheme, certAlgs) {
+			t.Errorf("%v missing from signature_algorithms_cert", e.scheme)
+		}
+		if pkcs15 && !isDisabledSignatureAlgorithm(VersionTLS13, e.scheme, false) {
+			t.Errorf("%v not disabled for handshake signatures", e.scheme)
+		}
+	}
+}
+
+// TestCompositeTypeAndHash checks that every composite scheme is signatureComposite
+// and signed unhashed.
+func TestCompositeTypeAndHash(t *testing.T) {
+	for _, e := range compositeSignatureSchemes {
+		sigType, hash, err := typeAndHashFromSignatureScheme(e.scheme)
+		if err != nil {
+			t.Errorf("%v: %v", e.scheme, err)
+			continue
+		}
+		if sigType != signatureComposite || hash != directSigning {
+			t.Errorf("%v: got (%#x, %v), want (signatureComposite, directSigning)", e.scheme, sigType, hash)
+		}
+	}
+}
+
+// TestCompositePKCS15CertificateVerifyRejected checks that a composite
+// PKCS#1 v1.5 key is never selected for CertificateVerify.
+func TestCompositePKCS15CertificateVerifyRejected(t *testing.T) {
+	skipFIPS(t)
+	for _, e := range compositeSignatureSchemes {
+		if !isCompositePKCS15SignatureScheme(e.scheme) {
+			continue
+		}
+		t.Run(e.scheme.String(), func(t *testing.T) {
+			cert := compositeTestCert(t, e.algo, "example.com")
+			if _, err := selectSignatureScheme(VersionTLS13, &cert, []SignatureScheme{e.scheme}); err == nil {
+				t.Error("selectSignatureScheme accepted a composite PKCS#1 v1.5 scheme for CertificateVerify")
+			}
+		})
+	}
+}
+
 // TestCompositeSignatureSchemeString checks that every composite
 // SignatureScheme has a name, that is, that common_string.go was
 // regenerated after adding it.
