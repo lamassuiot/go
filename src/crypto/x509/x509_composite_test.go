@@ -270,7 +270,7 @@ func TestCompositePEMRoundTrip(t *testing.T) {
 //
 // Test vectors sourced from:
 //
-//	https://github.com/lamps-wg/draft-composite-sigs/blob/draft-ietf-lamps-pq-composite-sigs-19/src/testvectors.json
+//	https://github.com/lamps-wg/draft-composite-sigs/blob/draft-ietf-lamps-pq-composite-sigs-19/src/testvectors.json (identical to RFC 10073 Appendix E)
 //
 // RSA, ECDSA and Ed25519 variants are included (15 total). Each tvCase
 // provides a pre-generated key pair and signature; we verify that

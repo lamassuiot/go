@@ -7,7 +7,7 @@ package tls
 import "crypto/x509"
 
 // Composite ML-DSA+RSA and ML-DSA+ECDSA algorithms
-// (draft-ietf-lamps-pq-composite-sigs).
+// (RFC 10073).
 //
 // No IANA codepoints have been assigned for these algorithms in the TLS
 // SignatureScheme registry, so these use the private use range reserved by

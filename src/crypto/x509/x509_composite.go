@@ -1,6 +1,6 @@
 // Package x509 — composite signature algorithms
 //
-// Implements the composite algorithms from draft-ietf-lamps-pq-composite-sigs
+// Implements the composite algorithms from RFC 10073
 // (ML-DSA+RSA, ML-DSA+ECDSA and ML-DSA+Ed25519). CompositeAlgorithm only holds an algorithm's
 // identity and its buildMPrime closure; the concrete inner algorithms are
 // fixed once, in the prototype keys built by newCompositeAlgorithm.
@@ -26,7 +26,7 @@ import (
 const compositeDomainPrefix = "CompositeAlgorithmSignatures2025"
 
 // CompositeAlgorithm describes one composite signature algorithm as
-// defined in draft-ietf-lamps-pq-composite-sigs.
+// defined in RFC 10073.
 type CompositeAlgorithm struct {
 	Name  string
 	Label string
@@ -50,7 +50,7 @@ type CompositeAlgorithm struct {
 //	M' = Prefix || Label || len(ctx) || ctx || PH(msg)                 (ML-DSA)
 //	M' = Prefix || len(Label) || Label || len(ctx) || ctx || PH(msg)   (otherwise)
 //
-// The ML-DSA shape is the one defined in draft-ietf-lamps-pq-composite-sigs-19,
+// The ML-DSA shape is the one defined in RFC 10073,
 // Section 3.2, and is the one every algorithm in this package uses.
 func newBuildMPrime(isMLDSA bool, hash crypto.Hash, label string) func(msg, ctx []byte) ([]byte, error) {
 	labelBytes := []byte(label)
@@ -118,7 +118,7 @@ func newCompositeAlgorithm(
 	return a
 }
 
-// Pre-declared algorithm instances (draft-ietf-lamps-pq-composite-sigs-19,
+// Pre-declared algorithm instances (RFC 10073,
 // Section 6).
 var (
 	MLDSA44_RSA2048_PSS_SHA256 = newCompositeAlgorithm(
@@ -186,7 +186,7 @@ var (
 		newRSAInnerPublicKey(4096, crypto.SHA384, true, nil),
 	)
 
-	// Composite ML-DSA+ECDSA algorithms (draft-ietf-lamps-pq-composite-sigs-19,
+	// Composite ML-DSA+ECDSA algorithms (RFC 10073,
 	// Section 6). Only the NIST-curve combinations are supported:
 	// the brainpool-curve entries (id-MLDSA65-ECDSA-brainpoolP256r1-SHA512,
 	// id-MLDSA87-ECDSA-brainpoolP384r1-SHA512) have no Go standard library
@@ -237,7 +237,7 @@ var (
 		newECDSAInnerPublicKey(elliptic.P521(), crypto.SHA512, nil),
 	)
 
-	// Composite ML-DSA+Ed25519 algorithms (draft-ietf-lamps-pq-composite-sigs-19,
+	// Composite ML-DSA+Ed25519 algorithms (RFC 10073,
 	// Section 6). The draft defines no ML-DSA87+Ed25519 combination
 	// (ML-DSA-87 pairs with Ed448 instead, which isn't implemented here).
 	MLDSA44_Ed25519_SHA512 = newCompositeAlgorithm(

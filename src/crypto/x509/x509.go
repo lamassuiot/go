@@ -272,7 +272,7 @@ const (
 	PureSLHDSASHAKE256s
 	PureSLHDSASHAKE256f
 
-	// Composite ML-DSA+RSA algorithms (draft-ietf-lamps-pq-composite-sigs-19).
+	// Composite ML-DSA+RSA algorithms (RFC 10073).
 	CompositeMLDSA44RSA2048PSSHA256
 	CompositeMLDSA44RSA2048PKCS15SHA256
 	CompositeMLDSA65RSA3072PSSHA512
@@ -282,14 +282,14 @@ const (
 	CompositeMLDSA87RSA3072PSSHA512
 	CompositeMLDSA87RSA4096PSSHA512
 
-	// Composite ML-DSA+ECDSA algorithms (draft-ietf-lamps-pq-composite-sigs-19).
+	// Composite ML-DSA+ECDSA algorithms (RFC 10073).
 	CompositeMLDSA44ECDSAP256SHA256
 	CompositeMLDSA65ECDSAP256SHA512
 	CompositeMLDSA65ECDSAP384SHA512
 	CompositeMLDSA87ECDSAP384SHA512
 	CompositeMLDSA87ECDSAP521SHA512
 
-	// Composite ML-DSA+Ed25519 algorithms (draft-ietf-lamps-pq-composite-sigs-19).
+	// Composite ML-DSA+Ed25519 algorithms (RFC 10073).
 	CompositeMLDSA44Ed25519SHA512
 	CompositeMLDSA65Ed25519SHA512
 )
@@ -508,7 +508,7 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm
 		}
 	}
 	if compositeAlgorithmByOID(ai.Algorithm) != nil {
-		// draft-ietf-lamps-pq-composite-sigs-19, Section 5.3
+		// RFC 10073, Section 5.3
 		// > PARAMS ARE absent
 		if len(ai.Parameters.FullBytes) != 0 {
 			return UnknownSignatureAlgorithm

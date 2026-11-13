@@ -3,7 +3,7 @@
 // Mirrors x509_composite_rsa.go. The private key is encoded as an RFC 5915
 // ECPrivateKey carrying the curve OID and no publicKey field, and the public
 // key as an uncompressed SEC 1 point, as required by
-// draft-ietf-lamps-pq-composite-sigs-19, Section 4. Unlike RSA, both have a
+// RFC 10073, Section 4. Unlike RSA, both have a
 // size that depends only on the curve, so Size() is exact even for a
 // prototype with no real key. ECDSA is always the second
 // (traditional, self-delimiting) slot of a composite key, so — as with
